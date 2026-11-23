@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { UID_PATTERN, validateEventInput, type EventInput } from "@/core/events/schema";
 import { applyOccurrenceAction, OCCURRENCE_ACTIONS, type OccurrenceAction } from "@/core/events/store";
-import { checkEditToken, errorResponse, json, readJson } from "@/server/http";
+import { guard, errorResponse, json, readJson } from "@/server/http";
 import { mutate } from "@/server/storage";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ type Ctx = { params: Promise<{ uid: string }> };
  *   { action: "edit-this" | "edit-future" | "delete-this" | "delete-future", recurrenceId: <EpochDay>, input?: EventInput }
  */
 export async function POST(req: Request, { params }: Ctx) {
-  const denied = checkEditToken(req);
+  const denied = await guard(req);
   if (denied) return denied;
   const { uid } = await params;
   if (!UID_PATTERN.test(uid)) return json({ error: "bad uid" }, 400);

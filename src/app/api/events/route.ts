@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { validateEventInput } from "@/core/events/schema";
 import { addEvent } from "@/core/events/store";
-import { checkEditToken, errorResponse, json, readJson } from "@/server/http";
+import { guard, errorResponse, json, readJson } from "@/server/http";
 import { getStore, mutate } from "@/server/storage";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   // When an edit token is configured, reading the events requires it too (they are private data).
-  const denied = checkEditToken(req);
+  const denied = await guard(req);
   if (denied) return denied;
   try {
     const store = getStore();
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const denied = checkEditToken(req);
+  const denied = await guard(req);
   if (denied) return denied;
   const v = validateEventInput(await readJson(req));
   if (!v.ok) return json({ errors: v.errors }, 400);

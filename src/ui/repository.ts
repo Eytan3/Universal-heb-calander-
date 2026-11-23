@@ -29,6 +29,28 @@ export interface EventRepository {
 }
 
 export class AuthRequiredError extends Error {}
+/** The server answered, but with an error (e.g. login misconfigured): show it, don't fall back to the browser. */
+class ServerError extends Error {}
+
+/** Server facts the UI needs: whether owner login is on, and the private feed key (signed-in owner only). */
+export const serverInfo = { login: "off" as "off" | "signed-in", feedToken: "", user: "" };
+
+/** Add the private feed key (when there is one) to a calendar-feed URL. */
+export function withFeedToken(url: string): string {
+  if (!serverInfo.feedToken) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(serverInfo.feedToken)}`;
+}
+
+function goToLogin() {
+  if (typeof window === "undefined" || window.location.pathname === "/login") return;
+  const next = window.location.pathname + window.location.search;
+  window.location.replace(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/api/logout", { method: "POST", cache: "no-store" }).catch(() => undefined);
+  window.location.replace("/login");
+}
 
 const TOKEN_KEY = "universal-calendar:edit-token";
 export const getEditToken = () => { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } };
@@ -41,7 +63,11 @@ async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
     cache: "no-store",
   });
-  if (res.status === 401) throw new AuthRequiredError("edit token required");
+  if (res.status === 401) {
+    const body = await res.clone().json().catch(() => ({}));
+    if (body.error === "login required") { goToLogin(); throw new AuthRequiredError("login required"); }
+    throw new AuthRequiredError("edit token required");
+  }
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.errors?.join(", ") ?? body.error ?? `HTTP ${res.status}`);
@@ -99,9 +125,15 @@ export async function chooseRepository(): Promise<EventRepository> {
   if (isPreview()) return new BrowserRepository(); // standalone preview page: no server
   try {
     const res = await fetch("/api/status", { cache: "no-store" });
-    const s = (await res.json()) as { storage: string };
-    return s.storage === "none" ? new BrowserRepository() : new ServerRepository(s.storage);
-  } catch {
+    const s = (await res.json()) as { storage?: string; login?: string; feedToken?: string; user?: string };
+    if (res.status === 401) { goToLogin(); return new Promise<never>(() => undefined); }
+    if (!res.ok) throw new ServerError((s as { error?: string }).error ?? `HTTP ${res.status}`);
+    serverInfo.login = s.login === "signed-in" ? "signed-in" : "off";
+    serverInfo.feedToken = s.feedToken ?? "";
+    serverInfo.user = s.user ?? "";
+    return !s.storage || s.storage === "none" ? new BrowserRepository() : new ServerRepository(s.storage);
+  } catch (e) {
+    if (e instanceof ServerError) throw e;
     return new BrowserRepository();
   }
 }

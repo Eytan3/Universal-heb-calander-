@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { StoreError } from "@/core/events/store";
 import { StorageUnavailableError } from "./storage";
+import { authConfig, feedToken, isAuthorized } from "./auth";
 
 export function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -23,8 +24,30 @@ export function checkEditToken(req: Request): Response | null {
   return safeEqual(got, expected) ? null : json({ error: "edit token required" }, 401);
 }
 
-/** When UC_FEED_TOKEN is set, the ICS feed requires ?token=<token>. */
-export function checkFeedToken(url: URL): boolean {
+/**
+ * Access check for every API route. With owner login enabled (UC_USER + UC_PASSWORD) a valid session
+ * cookie is required (the proxy checks this too; this is the second line of defence). Otherwise the
+ * optional UC_EDIT_TOKEN applies. Returns an error Response, or null if allowed.
+ */
+export async function guard(req: Request): Promise<Response | null> {
+  const mode = authConfig().mode;
+  if (mode === "misconfigured") return json({ error: "login misconfigured: set both UC_USER and UC_PASSWORD" }, 500);
+  if (mode === "on") return (await isAuthorized(req)) ? null : json({ error: "login required" }, 401);
+  return checkEditToken(req);
+}
+
+/**
+ * The events feed requires ?token=<token> when UC_FEED_TOKEN is set, or when owner login is on
+ * (then a token derived from the credentials is used, shown to the owner in Settings).
+ */
+export async function checkFeedToken(url: URL): Promise<boolean> {
+  if (authConfig().mode === "misconfigured") return false;
+  const expected = await feedToken();
+  return !expected || safeEqual(url.searchParams.get("token") ?? "", expected);
+}
+
+/** Holidays carry no personal data: they only need a token when UC_FEED_TOKEN is explicitly set. */
+export function checkHolidayFeedToken(url: URL): boolean {
   const expected = process.env.UC_FEED_TOKEN;
   return !expected || safeEqual(url.searchParams.get("token") ?? "", expected);
 }

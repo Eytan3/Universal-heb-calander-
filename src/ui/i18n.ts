@@ -32,6 +32,12 @@ const en = {
   calShort: { hebrew: "Hebrew", gregory: "Gregorian" } as Record<"hebrew" | "gregory", string>,
   readMore: "Read more",
   yomTov: "Yom Tov",
+  login: {
+    title: "Sign in", user: "User", password: "Password", submit: "Sign in", working: "Signing in…",
+    wrong: "Wrong user or password.", tooMany: (s: number) => `Too many attempts. Try again in ${s} seconds.`,
+    failed: "Could not sign in. Check your connection and try again.", signedInAs: (u: string) => `Signed in${u ? ` as ${u}` : ""}`,
+    logout: "Sign out", account: "Account", feedPrivate: "This link includes a private key. Share it only with your own devices.",
+  },
   kb: {
     title: "Keyboard shortcuts", day: "Previous / next day", week: "Previous / next week", month: "Previous / next month",
     year: "Previous / next year", monthEdges: "First / last day of the month", today: "Today", newEvent: "New event on the selected day",
@@ -171,6 +177,12 @@ const he: Strings = {
   calShort: { hebrew: "עברי", gregory: "לועזי" },
   readMore: "מידע נוסף",
   yomTov: "יום טוב",
+  login: {
+    title: "כניסה", user: "שם משתמש", password: "סיסמה", submit: "כניסה", working: "נכנסים…",
+    wrong: "שם המשתמש או הסיסמה שגויים.", tooMany: (s: number) => `יותר מדי ניסיונות. נסו שוב בעוד ${s} שניות.`,
+    failed: "הכניסה נכשלה. בדקו את החיבור ונסו שוב.", signedInAs: (u: string) => `מחוברים${u ? ` בתור ${u}` : ""}`,
+    logout: "יציאה", account: "חשבון", feedPrivate: "הקישור כולל מפתח פרטי. שתפו אותו רק עם המכשירים שלכם.",
+  },
   kb: {
     title: "קיצורי מקלדת", day: "יום קודם / הבא", week: "שבוע קודם / הבא", month: "חודש קודם / הבא",
     year: "שנה קודמת / הבאה", monthEdges: "היום הראשון / האחרון בחודש", today: "היום", newEvent: "אירוע חדש ביום הנבחר",

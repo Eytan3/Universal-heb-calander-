@@ -4,7 +4,7 @@ import type { Locale } from "@/core/calendars/types";
 import type { Strings } from "./i18n";
 import type { Theme } from "./theme";
 import { isPreview } from "./preview";
-import { getEditToken, setEditToken, type EventRepository } from "./repository";
+import { getEditToken, logout, serverInfo, setEditToken, withFeedToken, type EventRepository } from "./repository";
 import type { EventStoreDocument } from "@/core/events/schema";
 import { exportIcs, exportJson } from "./export";
 
@@ -24,7 +24,7 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState(getEditToken());
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const feedUrl = `${origin}/calendar.ics`;
+  const feedUrl = withFeedToken(`${origin}/calendar.ics`);
   const webcalUrl = feedUrl.replace(/^https?:/, "webcal:");
 
   return (
@@ -73,7 +73,7 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
                     {copied ? t.copied : t.copy}
                   </button>
                 </div>
-                <div className="row sub">{t.feedHelp} {t.feedPublicNote}</div>
+                <div className="row sub">{t.feedHelp} {serverInfo.feedToken ? t.login.feedPrivate : t.feedPublicNote}</div>
               </>
             ) : <div className="row sub">{isPreview() ? t.previewNote : t.browserOnly}</div>}
           </section>
@@ -90,7 +90,17 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
             <div className="row sub">{repo?.kind === "server" ? t.serverStorage(repo.storage) : t.storageBrowser}</div>
           </section>
 
-          {repo?.kind === "server" && (
+          {serverInfo.login === "signed-in" && (
+            <>
+              <h3 className="group-title">{t.login.account}</h3>
+              <section className="group">
+                <div className="row sub">{t.login.signedInAs(serverInfo.user)}</div>
+                <button type="button" className="row danger-row" onClick={() => void logout()}>{t.login.logout}</button>
+              </section>
+            </>
+          )}
+
+          {repo?.kind === "server" && serverInfo.login === "off" && (
             <>
               <h3 className="group-title">{t.editTokenLabel}</h3>
               <section className="group">

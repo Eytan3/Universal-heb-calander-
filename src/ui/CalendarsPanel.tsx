@@ -11,6 +11,7 @@ import type { Locale } from "@/core/calendars/types";
 import type { Strings } from "./i18n";
 import type { HolidayPrefs } from "./viewPrefs";
 import { exportIcs, exportJson } from "./export";
+import { withFeedToken } from "./repository";
 
 interface Props {
   /** Closes the panel (used by the sheet's Done button on phones). */
@@ -52,7 +53,7 @@ function useCopy() {
 }
 
 const origin = () => (typeof window === "undefined" ? "" : window.location.origin);
-const webcal = (path: string) => `${origin()}${path}`.replace(/^https?:/, "webcal:");
+const webcal = (path: string) => withFeedToken(`${origin()}${path}`).replace(/^https?:/, "webcal:");
 
 export function CalendarsPanel(p: Props) {
   const { t, doc } = p;

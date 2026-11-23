@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  if (!checkFeedToken(url)) return new Response("Forbidden", { status: 403 });
+  if (!(await checkFeedToken(url))) return new Response("Forbidden", { status: 403 });
   try {
     const doc = await getStore().load();
     const id = url.searchParams.get("collection");

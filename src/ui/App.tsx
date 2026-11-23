@@ -69,7 +69,7 @@ export default function App() {
     setYm(ymOf(mode, d));
     setView(readViewPrefs());
     try { setSidebarOpen(localStorage.getItem(SIDEBAR_KEY) === "open"); } catch { /* ignore */ }
-    chooseRepository().then(setRepo);
+    chooseRepository().then(setRepo, (e: Error) => setLoadError(e.message));
   }, []);
 
   const updateView = (v: ViewPrefs) => { setView(v); saveViewPrefs(v); };

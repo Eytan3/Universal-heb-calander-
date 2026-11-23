@@ -1,6 +1,6 @@
 import { buildHolidaysIcs } from "@/core/export/ics";
 import { HOLIDAY_CATEGORIES, jewishHolidays, type HolidayCategory } from "@/core/holidays/registry";
-import { checkFeedToken } from "@/server/http";
+import { checkHolidayFeedToken } from "@/server/http";
 import { feedRange, icsResponse } from "@/server/feeds";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 /** /holidays.ics?region=il|diaspora&categories=major,fast,...&lang=he|en — computed from built-in rules. */
 export function GET(req: Request) {
   const url = new URL(req.url);
-  if (!checkFeedToken(url)) return new Response("Forbidden", { status: 403 });
+  if (!checkHolidayFeedToken(url)) return new Response("Forbidden", { status: 403 });
   const region = url.searchParams.get("region") === "diaspora" ? "diaspora" : "il";
   const requested = (url.searchParams.get("categories") ?? "").split(",").filter(Boolean);
   const categories = requested.length

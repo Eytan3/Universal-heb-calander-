@@ -390,3 +390,15 @@ edit. Two optional shared secrets cover the single-user case:
 5. **Interop.** A JSCalendar import/export mapper, and ICS export with `RRULE;RSCALE=HEBREW` as an
    alternative feed for clients that support RFC 7529.
 6. **Storage.** Per-event keys and optimistic concurrency on `sequence`; CalDAV is possible later.
+
+
+## Owner login
+
+`src/server/auth.ts` implements a single-owner login configured only by environment variables
+(`UC_USER`, `UC_PASSWORD`, optional `UC_SESSION_SECRET`). Sessions are stateless: the cookie
+`ittim_session = v1.<user>.<expiry>.<HMAC>` is signed with a key derived from the credentials (Web Crypto,
+so the same code runs in the proxy and in route handlers). Checks happen twice: `src/proxy.ts` gates every
+page and API path (redirecting pages to `/login`, answering 401 for the API), and each API route calls
+`guard()` again. Public paths: `/login`, `/api/login`, `/api/logout`, and the two feeds, which check their
+own token. Credential comparison hashes both sides and compares digests in constant time. A half-configured
+login (only one variable) fails closed.
