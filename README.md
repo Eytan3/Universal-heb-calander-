@@ -76,6 +76,11 @@ npm start              # http://localhost:3000
   with a short explanation (Hebrew/English) and a *Read more* link. The holidays feed carries both too.
 - **Holidays:** under *Built-in*, untick *Jewish holidays* for a clean calendar; **⋯** chooses Israel or
   diaspora and which categories to show, and copies a holidays-only Apple Calendar link.
+- **Keyboard:** the whole calendar works from the keyboard — press **?** for the list. Arrows move by day
+  (following the grid's direction, so they mirror in Hebrew) and week; PageUp/PageDown or Shift+arrows by
+  month; Shift+↑/↓ by year; Home/End; **T** today, **N** new event, **Enter** open, **M** Hebrew ⇄ Gregorian,
+  **C** calendars, **,** settings, **Esc** close, **⌘/Ctrl+Enter** save in the editor. Letter keys are
+  matched by physical key, so they work with a Hebrew layout too.
 - **Settings (⚙):** interface language (עברית / English), appearance (automatic, light or dark), the
   Apple Calendar subscription link, storage status, and the edit token if the server requires one.
 

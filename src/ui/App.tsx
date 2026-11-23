@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCalendar, gregorian, hebrew } from "@/core/calendars/registry";
 import type { CalendarDate, CalendarId, Locale, YearMonth } from "@/core/calendars/types";
 import { byDay, expandAll, expandEvent, type Occurrence } from "@/core/events/expand";
@@ -10,6 +10,7 @@ import { holidayInfo, holidayLink } from "@/core/holidays/info";
 import { CalendarsPanel, displayName } from "./CalendarsPanel";
 import { readViewPrefs, saveViewPrefs, DEFAULT_VIEW, type ViewPrefs } from "./viewPrefs";
 import { todayEpochDay, type EpochDay } from "@/core/time/epochDay";
+import { KeyboardHelp } from "./KeyboardHelp";
 import { EventEditor, type Scope } from "./EventEditor";
 import { STRINGS } from "./i18n";
 import { MonthView } from "./MonthView";
@@ -45,6 +46,11 @@ export default function App() {
   const [tokenDraft, setTokenDraft] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+  /** Latest keyboard handler (reassigned every render so it sees current state). */
+  const keyHandler = useRef<((e: KeyboardEvent) => void) | null>(null);
+  /** Day to focus after a keyboard move, so the focus ring and screen readers follow the selection. */
+  const focusDay = useRef<EpochDay | null>(null);
   // Lazy init so the first effect never overwrites the saved choice (theme isn't in the SSR markup).
   const [theme, setTheme] = useState<Theme>(() => (typeof window === "undefined" ? "system" : readTheme()));
   const [addCalendar, setAddCalendar] = useState<CalendarId>("hebrew");
@@ -75,6 +81,18 @@ export default function App() {
   }, [locale]);
 
   useEffect(() => applyTheme(theme), [theme]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => keyHandler.current?.(e);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
+  useEffect(() => {
+    if (focusDay.current === null) return;
+    const el = document.querySelector<HTMLElement>(`.cell-hit[data-day="${focusDay.current}"]`);
+    focusDay.current = null;
+    el?.focus({ preventScroll: false });
+  });
 
   // Keep "today" correct when the tab stays open past midnight.
   useEffect(() => {
@@ -152,6 +170,74 @@ export default function App() {
   /** New event on the selected day (or today), in the main calendar. */
   const addOnSelected = () => setEditor({ date: getCalendar(addCalendar).fromEpochDay(selected ?? today) });
   const goToday = () => { setYm(ymOf(primary, today)); setSelected(today); setAddCalendar(primary); };
+
+  // ── Keyboard control (layout-independent: letters are matched by physical key, e.code) ──
+  /** Select a day; the view follows it into another month when needed. */
+  const moveTo = (day: EpochDay) => {
+    setSelected(day);
+    setAddCalendar(primary);
+    const target = ymOf(primary, day);
+    if (target.year !== ym.year || target.monthCode !== ym.monthCode) setYm(target);
+    focusDay.current = day;
+  };
+  /** Same day-of-month, `delta` months (in the main calendar) away; clamped to the month's length. */
+  const moveMonths = (delta: number) => {
+    const cal = getCalendar(primary);
+    const cur = cal.fromEpochDay(selected ?? today);
+    const ymNext = cal.addMonths({ year: cur.year, monthCode: cur.monthCode }, delta);
+    const day = Math.min(cur.day, cal.daysInMonth(ymNext.year, ymNext.monthCode)!);
+    moveTo(cal.toEpochDay({ ...ymNext, day }));
+  };
+  const moveYears = (delta: number) => moveMonths(delta * getCalendar(primary).monthsInYear(getCalendar(primary).fromEpochDay(selected ?? today).year).length);
+  const anySheet = Boolean(editor || showSettings || showKeys);
+  keyHandler.current = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      // A sheet that already handled Escape (e.g. closing its action sheet) marks the event.
+      if (e.defaultPrevented) return;
+      if (showKeys) setShowKeys(false);
+      else if (editor) setEditor(null);
+      else if (showSettings) setShowSettings(false);
+      else if (sidebarOpen) toggleSidebar();
+      return;
+    }
+    if (anySheet || e.defaultPrevented) return;
+    const tgt = e.target as HTMLElement | null;
+    if (tgt && (tgt.isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(tgt.tagName))) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return; // leave browser/OS shortcuts alone
+    const rtl = document.documentElement.dir === "rtl";
+    const cur = selected ?? today;
+    const cal = getCalendar(primary);
+    const step = (k: string) => (k === "ArrowRight" ? (rtl ? -1 : 1) : (rtl ? 1 : -1));
+    let handled = true;
+    switch (e.key) {
+      case "ArrowLeft": case "ArrowRight":
+        if (e.shiftKey) moveMonths(step(e.key)); else moveTo(cur + step(e.key));
+        break;
+      case "ArrowUp": if (e.shiftKey) moveYears(-1); else moveTo(cur - 7); break;
+      case "ArrowDown": if (e.shiftKey) moveYears(1); else moveTo(cur + 7); break;
+      case "PageUp": moveMonths(-1); break;
+      case "PageDown": moveMonths(1); break;
+      case "Home": { const d = cal.fromEpochDay(cur); moveTo(cal.toEpochDay({ ...d, day: 1 })); break; }
+      case "End": { const d = cal.fromEpochDay(cur); moveTo(cal.toEpochDay({ ...d, day: cal.daysInMonth(d.year, d.monthCode)! })); break; }
+      case "Enter": {
+        if (tgt && tgt.tagName === "BUTTON" && !tgt.classList.contains("cell-hit")) { handled = false; break; } // let focused buttons work
+        const first = dayEvents[0];
+        if (first) openEvent(first.eventUid, cur); else setEditor({ date: cal.fromEpochDay(cur) });
+        break;
+      }
+      default:
+        switch (e.code) {
+          case "KeyT": moveTo(today); break;
+          case "KeyN": setEditor({ date: cal.fromEpochDay(cur) }); break;
+          case "KeyM": switchMode(primary === "hebrew" ? "gregory" : "hebrew"); break;
+          case "KeyC": toggleSidebar(); break;
+          case "Comma": setShowSettings(true); break;
+          case "Slash": if (e.shiftKey || e.key === "?") setShowKeys(true); else handled = false; break;
+          default: handled = false;
+        }
+    }
+    if (handled) e.preventDefault();
+  };
 
   /** Switch Hebrew·Gregorian ⇄ Gregorian·Hebrew, staying on the same absolute day. */
   const switchMode = (mode: CalendarId) => {
@@ -271,6 +357,7 @@ export default function App() {
               </ul>
             )}
             <p className="muted small">{t.dayHint}</p>
+            <p className="kb-hint"><button type="button" onClick={() => setShowKeys(true)}>⌨ {t.kb.hint}</button></p>
           </section>
         );
       })()}
@@ -306,6 +393,7 @@ export default function App() {
           }) : undefined}
         />
       )}
+      {showKeys && <KeyboardHelp t={t} locale={locale} onClose={() => setShowKeys(false)} />}
       {showSettings && (
         <SettingsDialog t={t} locale={locale} onLocale={setLocale} theme={theme} onTheme={setTheme} repo={repo} doc={doc} onClose={() => setShowSettings(false)} />
       )}

@@ -73,6 +73,10 @@ export function MonthView(p: Props) {
         <button
           type="button"
           className="cell-hit"
+          data-day={day}
+          tabIndex={day === (p.selected ?? p.today) ? 0 : -1}
+          aria-selected={day === p.selected}
+          aria-current={day === p.today ? "date" : undefined}
           aria-label={`${cal.formatDate(nativeDate, locale)} · ${other.formatDate(o, locale)}`}
           onClick={() => p.onDayClick(nativeDate, day)}
           onDoubleClick={() => p.onDayDoubleClick(nativeDate, day)}

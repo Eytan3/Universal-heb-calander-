@@ -29,7 +29,7 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
 
   return (
     <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}>
         <div className="grabber" aria-hidden />
         <header className="sheet-bar">
           <span />

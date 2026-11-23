@@ -87,6 +87,7 @@ export function EventEditor(p: Props) {
   const [date, setDate] = useState<CalendarDate>(occ?.native ?? ex?.start ?? p.initialDate);
   /** Apple-style action sheet: which scope to save/delete with. */
   const [ask, setAsk] = useState<null | "save" | "delete">(null);
+  const formRef = useRef<HTMLFormElement>(null);
   // Apple's default for a new event: does not repeat.
   const [preset, setPreset] = useState<Preset>(presetOf(exRule?.frequency, exRule?.interval));
   const [customFreq, setCustomFreq] = useState<Frequency>(exRule?.frequency ?? "weekly");
@@ -180,7 +181,11 @@ export function EventEditor(p: Props) {
 
   return (
     <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && p.onClose()}>
-      <form className="sheet" onSubmit={save} role="dialog" aria-modal="true" aria-labelledby="editor-title" onKeyDown={(e) => e.key === "Escape" && p.onClose()}>
+      <form ref={formRef} className="sheet" onSubmit={save} role="dialog" aria-modal="true" aria-labelledby="editor-title"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") { e.preventDefault(); if (ask) setAsk(null); else p.onClose(); return; }
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (!ask) formRef.current?.requestSubmit(); }
+        }}>
         <div className="grabber" aria-hidden />
         <header className="sheet-bar">
           <button type="button" className="bar-btn" onClick={p.onClose} disabled={busy}>{t.cancel}</button>
