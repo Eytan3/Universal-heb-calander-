@@ -343,6 +343,4 @@ kbd { font-family: var(--font); font-size: 0.8rem; font-weight: 600; min-width: 
 .kbd-group { display: inline-flex; gap: 0.25rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .kbd-sep { color: var(--muted); margin-inline: 0.2rem; }
 .cell-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
-.kb-hint { color: var(--muted); font-size: 0.78rem; margin: 0.6rem 0.25rem 0; }
-.kb-hint button { border: 0; background: transparent; color: var(--accent); font-weight: 600; padding: 0; }
-@media (hover: none), (max-width: 600px) { .kb-hint { display: none; } }
+@media (hover: none), (max-width: 600px) { .kb-btn { display: none; } }

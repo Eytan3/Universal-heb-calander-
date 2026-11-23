@@ -270,6 +270,9 @@ export default function App() {
             <span className="arrows" aria-hidden>⇄</span>
             <span className="other">{t.calShort[primary === "hebrew" ? "gregory" : "hebrew"]}</span>
           </button>
+          <button type="button" className="glass-btn icon-only kb-btn" onClick={() => setShowKeys(true)} aria-label={t.kb.title} title={`${t.kb.title} (?)`}>
+            <svg viewBox="0 0 24 24" aria-hidden><rect x="2.5" y="6" width="19" height="12" rx="2.5" /><path d="M6 10h.01M9.3 10h.01M12.6 10h.01M15.9 10h.01M18 10h.01M6.5 14h.01M17.5 14h.01M9 14h6" /></svg>
+          </button>
           <button type="button" className="glass-btn icon-only" onClick={() => setShowSettings(true)} aria-label={t.settings} title={t.settings}>
             <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
           </button>
@@ -357,7 +360,6 @@ export default function App() {
               </ul>
             )}
             <p className="muted small">{t.dayHint}</p>
-            <p className="kb-hint"><button type="button" onClick={() => setShowKeys(true)}>⌨ {t.kb.hint}</button></p>
           </section>
         );
       })()}
