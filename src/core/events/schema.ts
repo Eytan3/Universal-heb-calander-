@@ -58,6 +58,8 @@ export interface RecurrenceRule {
    * (Departure from JSCalendar, which has no such field; see ARCHITECTURE.md.)
    */
   from?: CalendarDate;
+  /** "End Repeat": the last day repeats may occur on (inclusive), in the rule's calendar. Absent = never ends. */
+  until?: CalendarDate;
 }
 
 export interface UCEvent {
@@ -144,11 +146,21 @@ export function validateEventInput(raw: unknown): ValidationResult<EventInput> {
         if (f.calendar !== start.calendar || !cal.isValid(cand)) errors.push("recurrence 'from' must be a valid date in the event's calendar");
         else if (cal.toEpochDay(cand) > cal.toEpochDay(start)) from = { calendar: start.calendar, ...cand }; // ≤ start is meaningless: drop it
       }
+      let until: CalendarDate | undefined;
+      if (r.until !== undefined && r.until !== null && start) {
+        const u = r.until as Record<string, unknown>;
+        const cand = { year: Number(u.year), monthCode: String(u.monthCode), day: Number(u.day) };
+        const cal = getCalendar(start.calendar);
+        if (u.calendar !== start.calendar || !cal.isValid(cand)) errors.push("recurrence 'until' must be a valid date in the event's calendar");
+        else if (cal.toEpochDay(cand) < cal.toEpochDay(start)) errors.push("recurrence 'until' must not be before the start");
+        else until = { calendar: start.calendar, ...cand };
+      }
       if (start && errors.length === 0)
         recurrenceRules = [{
           "@type": "RecurrenceRule", frequency, rscale: start.calendar, interval,
           ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}),
           ...(from ? { from } : {}),
+          ...(until ? { until } : {}),
         }];
     }
   }

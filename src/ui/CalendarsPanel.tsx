@@ -13,6 +13,8 @@ import type { HolidayPrefs } from "./viewPrefs";
 import { exportIcs, exportJson } from "./export";
 
 interface Props {
+  /** Closes the panel (used by the sheet's Done button on phones). */
+  onClose: () => void;
   t: Strings;
   locale: Locale;
   doc: EventStoreDocument;
@@ -80,6 +82,11 @@ export function CalendarsPanel(p: Props) {
 
   return (
     <aside className="sidebar" id="calendars-panel" aria-label={t.calendars}>
+      <div className="grabber" aria-hidden />
+      <header className="side-bar">
+        <h2>{t.calendars}</h2>
+        <button type="button" className="bar-btn strong" onClick={p.onClose}>{t.done}</button>
+      </header>
       <h2 className="side-title">{t.myCalendars}</h2>
       <ul className="cal-list">
         {doc.collections.map((c) => {

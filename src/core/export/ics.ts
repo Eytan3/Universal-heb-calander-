@@ -116,7 +116,7 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
     if (first !== original) lines.push(...veventHead(ev, `${ev.uid}.origin@${domain}`, original), desc, "END:VEVENT");
     lines.push(
       ...veventHead(ev, `${ev.uid}.rule@${domain}`, first),
-      `RRULE:FREQ=${rule.frequency.toUpperCase()};INTERVAL=${rule.interval ?? 1}`,
+      `RRULE:FREQ=${rule.frequency.toUpperCase()};INTERVAL=${rule.interval ?? 1}${rule.until ? `;UNTIL=${icsDate(cal.toEpochDay(rule.until))}` : ""}`,
       desc,
       "END:VEVENT",
     );

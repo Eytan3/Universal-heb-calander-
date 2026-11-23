@@ -72,11 +72,12 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
   const all = rule.frequency === "daily" || rule.frequency === "weekly" ? expandFixedStep(event, range)
     : rule.frequency === "monthly" ? expandMonthly(event, range)
     : expandYearly(event, range);
-  if (!rule.from) return all;
-  // Repeats begin at `from`; the original occurrence on `start` is kept.
-  const fromDay = cal.toEpochDay(rule.from);
+  if (!rule.from && !rule.until) return all;
+  // Repeats begin at `from` (the original occurrence on `start` is kept) and end at `until` (inclusive).
   const startDay = cal.toEpochDay(start);
-  return all.filter((o) => o.epochDay >= fromDay || o.epochDay === startDay);
+  const fromDay = rule.from ? cal.toEpochDay(rule.from) : -Infinity;
+  const untilDay = rule.until ? cal.toEpochDay(rule.until) : Infinity;
+  return all.filter((o) => (o.epochDay >= fromDay || o.epochDay === startDay) && o.epochDay <= untilDay);
 }
 
 function expandYearly(event: UCEvent, range: Range): Occurrence[] {

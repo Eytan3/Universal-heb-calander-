@@ -11,6 +11,7 @@ const T = {
   en: {
     once: "One-time",
     from: (d: string) => `from ${d}`,
+    until: (d: string) => `until ${d}`,
     daily: (n: number) => (n === 1 ? "Every day" : `Every ${n} days`),
     weekly: (n: number, wd: string) => (n === 1 ? `Every week on ${wd}` : `Every ${n} weeks on ${wd}`),
     monthly: (n: number, d: string, cal: string) => `${n === 1 ? "Every month" : `Every ${n} months`} on day ${d} (${cal} months)`,
@@ -20,6 +21,7 @@ const T = {
   he: {
     once: "חד־פעמי",
     from: (d: string) => `החל מ־${d}`,
+    until: (d: string) => `עד ${d}`,
     daily: (n: number) => (n === 1 ? "כל יום" : `כל ${n} ימים`),
     weekly: (n: number, wd: string) => (n === 1 ? `כל שבוע ב${wd}` : `כל ${n} שבועות ב${wd}`),
     monthly: (n: number, d: string, cal: string) => `${n === 1 ? "כל חודש" : `כל ${n} חודשים`} ב־${d} לחודש (${cal})`,
@@ -43,6 +45,7 @@ export function describeRule(event: UCEvent, locale: Locale, withSkip = false): 
   else if (freq === "monthly") base = t.monthly(n, cal.formatDayNumber(event.start.day, locale), calName);
   else base = t.yearly(n, `${cal.formatDayNumber(event.start.day, locale)} ${cal.genericMonthName(event.start.monthCode, locale)}`, calName);
   if (rule.from) base += ` · ${t.from(cal.formatDate(rule.from, locale))}`;
+  if (rule.until) base += ` · ${t.until(cal.formatDate(rule.until, locale))}`;
   const usesSkip = freq === "monthly" || freq === "yearly";
   return withSkip && usesSkip ? `${base}; ${t.skip[rule.skip ?? "omit"]}` : base;
 }

@@ -18,7 +18,9 @@ and its occurrences appear on the correct day in every calendar view and in an A
   clean calendar, or choose categories. A separate `/holidays.ics` feed is available.
 - A JSON event store (documented schema) on disk locally, or in Redis on Vercel.
 - A live ICS feed (`/calendar.ics`) with stable UIDs, for Apple Calendar subscriptions.
-- English (LTR) and Hebrew (RTL) interface; responsive. Language, the feed link, storage status and the
+- English (LTR) and Hebrew (RTL) interface, light and dark, in a design language inspired by iOS
+  Calendar: glass toolbars, large titles, sheets that rise from the bottom on phones, grouped forms,
+  and a bottom toolbar (Today · Calendars · +) on phones. Language, the feed link, storage status and the
   edit token are in **Settings**.
 
 ![Month view in Hebrew · Gregorian mode, with the day list](docs/screenshot-en.png)
@@ -58,12 +60,11 @@ npm start              # http://localhost:3000
 - **Add an event:** press *+ New event* under the month, or double-click a day. The editor opens in the
   current display's main calendar. You can switch it to the other calendar; the date is re-expressed as
   the same day.
-- **Old events:** if the event's date is in the past and you set it to repeat, repeats start **from
-  today** by default (the past isn't filled in; the original date is kept). Choose *From the event's date*
-  to include past years.
-- **Repeat:** choose *Does not repeat*, *Daily*, *Weekly*, *Monthly* or *Yearly*, and "every N". Monthly
-  and yearly follow the event's calendar. If the date can be missing (the 30th in a 29-day Hebrew month,
-  the 31st, Adar I, 29 February), the editor asks what to do: move forward (default), move back, or skip.
+- **Repeat** (as in Apple Calendar): *Never*, *Every Day*, *Every Week*, *Every 2 Weeks*, *Every Month*,
+  *Every Year*, or *Custom…* (every N days/weeks/months/years). **End Repeat**: *Never* or *On Date*.
+  Monthly and yearly repeats follow the event's own calendar. If the date can be missing (the 30th in a
+  29-day Hebrew month, the 31st, Adar I, 29 February), the editor asks what to do: next day (default),
+  previous day, or skip.
 - **Edit or delete:** click an event in the month or in the day list.
 - **Navigate:** use ‹ › to move between months, or pick a month or year.
 - **Calendars panel (side):** tick a calendar to show or hide it; **⋯** renames it, changes its colour,

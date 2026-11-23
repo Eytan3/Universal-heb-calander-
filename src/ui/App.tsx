@@ -139,6 +139,15 @@ export default function App() {
     if (ev) { setSelected(day); setEditor({ existing: ev, date: ev.start }); }
   };
 
+  const toggleSidebar = () => {
+    const next = !sidebarOpen;
+    setSidebarOpen(next);
+    try { localStorage.setItem(SIDEBAR_KEY, next ? "open" : "closed"); } catch { /* ignore */ }
+  };
+  /** New event on the selected day (or today), in the main calendar. */
+  const addOnSelected = () => setEditor({ date: getCalendar(addCalendar).fromEpochDay(selected ?? today) });
+  const goToday = () => { setYm(ymOf(primary, today)); setSelected(today); setAddCalendar(primary); };
+
   /** Switch Hebrew·Gregorian ⇄ Gregorian·Hebrew, staying on the same absolute day. */
   const switchMode = (mode: CalendarId) => {
     if (mode === primary) return;
@@ -154,27 +163,26 @@ export default function App() {
   return (
     <main className="app">
       <header className="top">
-        <div>
+        <div className="brand">
           <h1>{t.appName}</h1>
           <p className="tagline">{t.tagline}</p>
         </div>
         <div className="top-actions">
-          <button type="button" className={`sidebar-toggle${sidebarOpen ? " on" : ""}`} aria-expanded={sidebarOpen} aria-controls="calendars-panel"
-            title={t.calendars} onClick={() => {
-              const next = !sidebarOpen;
-              setSidebarOpen(next);
-              try { localStorage.setItem(SIDEBAR_KEY, next ? "open" : "closed"); } catch { /* ignore */ }
-            }}>
-            <svg viewBox="0 0 20 20" aria-hidden><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" /><path d="M7.5 3.5v13" /></svg>
-            <span>{t.calendars}</span>
+          <button type="button" className={`glass-btn sidebar-toggle${sidebarOpen ? " on" : ""}`} aria-expanded={sidebarOpen} aria-controls="calendars-panel"
+            title={t.calendars} onClick={toggleSidebar}>
+            <svg viewBox="0 0 20 20" aria-hidden><rect x="2.5" y="3.5" width="15" height="13" rx="3" /><path d="M7.5 3.5v13" /></svg>
+            <span className="label">{t.calendars}</span>
           </button>
-          <button type="button" className={`mode-toggle cal-${primary}`} onClick={() => switchMode(primary === "hebrew" ? "gregory" : "hebrew")}
+          <button type="button" className={`glass-btn mode-toggle cal-${primary}`} onClick={() => switchMode(primary === "hebrew" ? "gregory" : "hebrew")}
             title={t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])} aria-label={`${t.modeLabel}: ${t.modes[primary]}. ${t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])}`}>
             <span className="arrows" aria-hidden>⇄</span>
             <span>{t.modes[primary]}</span>
           </button>
-          <button type="button" className="lang" onClick={() => setShowSettings(true)} aria-label={t.settings}>
-            <span aria-hidden>⚙︎</span> {t.settings}
+          <button type="button" className="glass-btn icon-only" onClick={() => setShowSettings(true)} aria-label={t.settings} title={t.settings}>
+            <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+          </button>
+          <button type="button" className="add-fab" onClick={addOnSelected} aria-label={t.newEvent} title={t.newEvent}>
+            <svg viewBox="0 0 20 20" aria-hidden><path d="M10 4v12M4 10h12" /></svg>
           </button>
         </div>
       </header>
@@ -190,7 +198,8 @@ export default function App() {
       )}
 
       <div className={`layout${sidebarOpen ? "" : " no-sidebar"}`}>
-      {sidebarOpen && <CalendarsPanel t={t} locale={locale} doc={doc} hidden={hidden}
+      {sidebarOpen && <div className="side-backdrop" onClick={toggleSidebar} aria-hidden />}
+      {sidebarOpen && <CalendarsPanel onClose={toggleSidebar} t={t} locale={locale} doc={doc} hidden={hidden}
         onToggle={(id) => updateView({ ...view, hiddenCollections: hidden.has(id) ? view.hiddenCollections.filter((x) => x !== id) : [...view.hiddenCollections, id] })}
         holidays={view.holidays} onHolidays={(h) => updateView({ ...view, holidays: h })}
         serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()}
@@ -214,9 +223,6 @@ export default function App() {
                   <strong>{mainCal.formatDate(mainCal.fromEpochDay(selected), locale)}</strong> · {otherCal.formatDate(otherCal.fromEpochDay(selected), locale)}
                 </p>
               </div>
-              <button type="button" className="add" onClick={() => setEditor({ date: getCalendar(addCalendar).fromEpochDay(selected) })}>
-                + {t.addOnDay}
-              </button>
             </header>
             {dayHolidays.length > 0 && (
               <ul className="day-holidays">
@@ -253,6 +259,14 @@ export default function App() {
       })()}
       </div>
       </div>
+
+      <nav className="bottom-bar" aria-label={t.calendars}>
+        <button type="button" className="glass-btn" onClick={goToday}>{t.today}</button>
+        <button type="button" className={`glass-btn${sidebarOpen ? " on" : ""}`} onClick={toggleSidebar} aria-expanded={sidebarOpen}>{t.calendars}</button>
+        <button type="button" className="add-fab" onClick={addOnSelected} aria-label={t.newEvent}>
+          <svg viewBox="0 0 20 20" aria-hidden><path d="M10 4v12M4 10h12" /></svg>
+        </button>
+      </nav>
 
       {editor && repo && (
         <EventEditor

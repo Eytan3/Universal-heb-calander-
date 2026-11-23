@@ -164,3 +164,28 @@ describe("repeats that start from today for an old event (rule.from)", () => {
     expect(describeRule(fromToday(H(5750, "M03", 15), "yearly"), "he")).toContain("החל מ־");
   });
 });
+
+describe("End Repeat (rule.until)", () => {
+  const withUntil = (start: CalendarDate, frequency: Frequency, until: CalendarDate) => {
+    const v = validateEventInput({ title: "u", start, recurrenceRules: [{ frequency, until }] });
+    if (!v.ok) throw new Error(v.errors.join(", "));
+    return createEvent(v.value, "u");
+  };
+  it("stops on the end date (inclusive), in the event's calendar", () => {
+    const occ = expandEvent(withUntil(H(5787, "M03", 15), "yearly", H(5790, "M03", 15)), ALL);
+    expect(occ.map((o) => o.native.year)).toEqual([5787, 5788, 5789, 5790]);
+    const w = expandEvent(withUntil(G(2026, "M11", 23), "weekly", G(2026, "M12", 13)), ALL);
+    expect(w).toHaveLength(3); // 23 Nov, 30 Nov, 7 Dec
+  });
+  it("rejects an end before the start", () => {
+    expect(validateEventInput({ title: "u", start: G(2026, "M11", 23), recurrenceRules: [{ frequency: "daily", until: G(2026, "M11", 1) }] }).ok).toBe(false);
+  });
+  it("ICS: weekly with UNTIL as a DATE", () => {
+    const comp = new ICAL.Component(ICAL.parse(buildIcs([withUntil(G(2026, "M11", 23), "weekly", G(2026, "M12", 13))], { range: { start: 20000, end: 21000 } })));
+    const rr = comp.getFirstSubcomponent("vevent")!.getFirstPropertyValue("rrule") as unknown as { until: { toString(): string } };
+    expect(rr.until.toString()).toBe("2026-12-13");
+  });
+  it("describes the end", () => {
+    expect(describeRule(withUntil(H(5787, "M03", 15), "yearly", H(5790, "M03", 15)), "he")).toContain("עד ");
+  });
+});
