@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authConfig, checkCredentials, createSession, feedToken, isAuthorized, readCookie, SESSION_COOKIE, verifySession } from "@/server/auth";
+import { authConfig, checkCredentials, createSession, feedToken, isAuthorized, publicView, readCookie, SESSION_COOKIE, verifySession } from "@/server/auth";
 
 const env = { UC_USER: "eytan", UC_PASSWORD: "correct horse battery staple" };
 const cfg = authConfig(env);
@@ -48,12 +48,20 @@ describe("owner login", () => {
     expect(readCookie("a=1; b=2", "b")).toBe("2");
   });
 
-  it("derives a stable private feed token, or uses UC_FEED_TOKEN", async () => {
+  it("is a public (view-only) calendar by default, private on request", () => {
+    expect(publicView({})).toBe(true);
+    expect(publicView({ UC_VISIBILITY: "public" })).toBe(true);
+    expect(publicView({ UC_VISIBILITY: " Private " })).toBe(false);
+  });
+
+  it("feed: open on a public calendar; a stable private token on a private one, or UC_FEED_TOKEN", async () => {
     expect(await feedToken({})).toBe("");
-    const t = await feedToken(env);
+    expect(await feedToken(env)).toBe(""); // public calendar → public feed
+    const priv = { ...env, UC_VISIBILITY: "private" };
+    const t = await feedToken(priv);
     expect(t).toMatch(/^[A-Za-z0-9_-]{32}$/);
-    expect(await feedToken(env)).toBe(t);
-    expect(await feedToken({ ...env, UC_PASSWORD: "other" })).not.toBe(t);
+    expect(await feedToken(priv)).toBe(t);
+    expect(await feedToken({ ...priv, UC_PASSWORD: "other" })).not.toBe(t);
     expect(await feedToken({ ...env, UC_FEED_TOKEN: "fixed" })).toBe("fixed");
   });
 });

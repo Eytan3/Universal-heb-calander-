@@ -67,6 +67,7 @@ export default function LoginForm() {
         </div>
         {error && <p className="login-error" role="alert">{error}</p>}
         <button type="submit" className="login-submit" disabled={busy}>{busy ? t.login.working : t.login.submit}</button>
+        <a className="link-btn login-lang" href="/">{t.login.back}</a>
         <button type="button" className="link-btn login-lang" onClick={() => {
           const l: Locale = locale === "he" ? "en" : "he";
           setLocale(l);

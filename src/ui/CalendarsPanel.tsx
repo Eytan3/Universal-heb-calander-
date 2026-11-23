@@ -30,6 +30,8 @@ interface Props {
   onCreate: (name: string, color: string) => Promise<void>;
   onUpdate: (id: string, name: string, color: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** Viewer of a public calendar (not signed in): links and exports only, no changes. */
+  readOnly?: boolean;
 }
 
 export function displayName(c: Collection, t: Strings) {
@@ -103,6 +105,7 @@ export function CalendarsPanel(p: Props) {
               </div>
               {isOpen && draft && (
                 <div className="cal-options">
+                  {!p.readOnly && (<>
                   <input value={draft.name} placeholder={t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                   <div className="swatches" role="radiogroup" aria-label={t.colorLabel}>
@@ -112,6 +115,7 @@ export function CalendarsPanel(p: Props) {
                     ))}
                   </div>
                   <button type="button" className="opt primary-opt" onClick={() => run(async () => { await p.onUpdate(c.id, draft.name, draft.color); setOpen(null); })}>{t.done}</button>
+                  </>)}
                   {p.serverFeeds && (
                     <button type="button" className="opt" onClick={() => copy(c.id, webcal(`/calendar.ics?collection=${c.id}`))}>
                       {copied === c.id ? t.linkCopied : `🔗 ${t.appleLink}`}
@@ -119,7 +123,7 @@ export function CalendarsPanel(p: Props) {
                   )}
                   <button type="button" className="opt" onClick={() => exportIcs(doc.events.filter((e) => e.collectionId === c.id), name)}>⤓ {t.exportIcs}</button>
                   <button type="button" className="opt" onClick={() => exportJson(doc, [c], name)}>⤓ {t.exportJson}</button>
-                  {doc.collections.length > 1 ? (
+                  {p.readOnly ? null : doc.collections.length > 1 ? (
                     <button type="button" className={armedDelete === c.id ? "opt danger armed" : "opt danger"}
                       onClick={() => armedDelete === c.id ? run(async () => { await p.onDelete(c.id); setOpen(null); }) : setArmedDelete(c.id)}>
                       {armedDelete === c.id ? t.confirmDeleteCalendar(counts.get(c.id) ?? 0) : t.deleteCalendar}
@@ -132,7 +136,7 @@ export function CalendarsPanel(p: Props) {
         })}
       </ul>
 
-      {creating ? (
+      {p.readOnly ? null : creating ? (
         <form className="cal-options new" onSubmit={(e) => { e.preventDefault(); run(async () => { await p.onCreate(creating.name.trim(), creating.color); setCreating(null); }); }}>
           <input autoFocus value={creating.name} placeholder={t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
             onChange={(e) => setCreating({ ...creating, name: e.target.value })} />

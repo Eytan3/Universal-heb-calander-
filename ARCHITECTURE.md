@@ -395,10 +395,12 @@ edit. Two optional shared secrets cover the single-user case:
 ## Owner login
 
 `src/server/auth.ts` implements a single-owner login configured only by environment variables
-(`UC_USER`, `UC_PASSWORD`, optional `UC_SESSION_SECRET`). Sessions are stateless: the cookie
+(`UC_USER`, `UC_PASSWORD`, optional `UC_SESSION_SECRET`). Writes always need the owner's session.
+`UC_VISIBILITY` decides reads: `public` (default) lets anyone view read-only (`/api/status` reports
+`login: "viewer"` and the UI hides every editing control); `private` requires the session for reads too. Sessions are stateless: the cookie
 `ittim_session = v1.<user>.<expiry>.<HMAC>` is signed with a key derived from the credentials (Web Crypto,
-so the same code runs in the proxy and in route handlers). Checks happen twice: `src/proxy.ts` gates every
+so the same code runs in the proxy and in route handlers). On a private calendar checks happen twice: `src/proxy.ts` gates every
 page and API path (redirecting pages to `/login`, answering 401 for the API), and each API route calls
-`guard()` again. Public paths: `/login`, `/api/login`, `/api/logout`, and the two feeds, which check their
+`guard(req, "read" | "write")` again; on a public calendar only `guard` applies, and it refuses every write. Public paths: `/login`, `/api/login`, `/api/logout`, and the two feeds, which check their
 own token. Credential comparison hashes both sides and compares digests in constant time. A half-configured
 login (only one variable) fails closed.

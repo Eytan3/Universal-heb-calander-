@@ -36,7 +36,7 @@ const en = {
     title: "Sign in", user: "User", password: "Password", submit: "Sign in", working: "Signing in…",
     wrong: "Wrong user or password.", tooMany: (s: number) => `Too many attempts. Try again in ${s} seconds.`,
     failed: "Could not sign in. Check your connection and try again.", signedInAs: (u: string) => `Signed in${u ? ` as ${u}` : ""}`,
-    logout: "Sign out", account: "Account", feedPrivate: "This link includes a private key. Share it only with your own devices.",
+    logout: "Sign out", account: "Account", back: "Back to the calendar", viewOnly: "View only. Sign in to add or change events.", signInToEdit: "Sign in to edit", feedPrivate: "This link includes a private key. Share it only with your own devices.",
   },
   kb: {
     title: "Keyboard shortcuts", day: "Previous / next day", week: "Previous / next week", month: "Previous / next month",
@@ -181,7 +181,7 @@ const he: Strings = {
     title: "כניסה", user: "שם משתמש", password: "סיסמה", submit: "כניסה", working: "נכנסים…",
     wrong: "שם המשתמש או הסיסמה שגויים.", tooMany: (s: number) => `יותר מדי ניסיונות. נסו שוב בעוד ${s} שניות.`,
     failed: "הכניסה נכשלה. בדקו את החיבור ונסו שוב.", signedInAs: (u: string) => `מחוברים${u ? ` בתור ${u}` : ""}`,
-    logout: "יציאה", account: "חשבון", feedPrivate: "הקישור כולל מפתח פרטי. שתפו אותו רק עם המכשירים שלכם.",
+    logout: "יציאה", account: "חשבון", back: "חזרה ללוח", viewOnly: "צפייה בלבד. כדי להוסיף או לשנות אירועים צריך להיכנס.", signInToEdit: "כניסה לעריכה", feedPrivate: "הקישור כולל מפתח פרטי. שתפו אותו רק עם המכשירים שלכם.",
   },
   kb: {
     title: "קיצורי מקלדת", day: "יום קודם / הבא", week: "שבוע קודם / הבא", month: "חודש קודם / הבא",

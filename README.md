@@ -139,13 +139,15 @@ All variables are listed in [`.env.example`](./.env.example).
 **Owner login (user + password).** Set `UC_USER` and `UC_PASSWORD` in the hosting environment
 (Vercel → Settings → Environment Variables, then redeploy). They are read at runtime and never stored in the
 repository, so they are not visible on GitHub. With both set:
-- every page and API call requires signing in at `/login`; sessions are HMAC-signed, HttpOnly cookies valid
-  for 30 days, and changing the password signs out every device;
+- **only the signed-in owner can add, change or delete** events and calendars. Every API route that changes
+  data refuses requests without a valid session, whatever the browser shows;
+- **viewing stays open by default** (`UC_VISIBILITY=public`): visitors see the calendar read-only, with a
+  "Sign in to edit" button, and the `.ics` feeds work as before;
+- `UC_VISIBILITY=private` hides it too: every page and the API need the login, and the events feed needs a
+  private `?token=…` (Settings adds it to the link it shows; it is derived from the credentials, so changing
+  the password changes the link, unless `UC_FEED_TOKEN` is set);
+- sessions are HMAC-signed, HttpOnly cookies valid for 30 days; changing the password signs out every device;
 - repeated wrong passwords are slowed down and then locked out for a growing period;
-- the events feed (`/calendar.ics`) needs a private `?token=…`, which Settings adds to the link it shows;
-  calendar apps cannot log in, so the token is what protects the feed. It is derived from the credentials
-  (changing the password changes the link) unless `UC_FEED_TOKEN` is set;
-- `/holidays.ics` stays open (it holds no personal data) unless `UC_FEED_TOKEN` is set;
 - if only one of the two variables is set, the app refuses all access instead of running unprotected.
 
 

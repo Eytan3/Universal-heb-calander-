@@ -4,7 +4,7 @@ import type { Locale } from "@/core/calendars/types";
 import type { Strings } from "./i18n";
 import type { Theme } from "./theme";
 import { isPreview } from "./preview";
-import { getEditToken, logout, serverInfo, setEditToken, withFeedToken, type EventRepository } from "./repository";
+import { getEditToken, goToLogin, logout, serverInfo, setEditToken, withFeedToken, type EventRepository } from "./repository";
 import type { EventStoreDocument } from "@/core/events/schema";
 import { exportIcs, exportJson } from "./export";
 
@@ -89,6 +89,16 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
           <section className="group">
             <div className="row sub">{repo?.kind === "server" ? t.serverStorage(repo.storage) : t.storageBrowser}</div>
           </section>
+
+          {serverInfo.login === "viewer" && (
+            <>
+              <h3 className="group-title">{t.login.account}</h3>
+              <section className="group">
+                <div className="row sub">{t.login.viewOnly}</div>
+                <button type="button" className="row link-row" onClick={goToLogin}>{t.login.signInToEdit}</button>
+              </section>
+            </>
+          )}
 
           {serverInfo.login === "signed-in" && (
             <>

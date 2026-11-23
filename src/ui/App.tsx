@@ -17,7 +17,7 @@ import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
 import { isPreview } from "./preview";
 import { applyTheme, readTheme, type Theme } from "./theme";
-import { AuthRequiredError, chooseRepository, setEditToken, type EventRepository } from "./repository";
+import { AuthRequiredError, chooseRepository, goToLogin, serverInfo, setEditToken, type EventRepository } from "./repository";
 
 type EditorState = { existing?: UCEvent; date: CalendarDate; occurrence?: Occurrence } | null;
 
@@ -151,13 +151,16 @@ export default function App() {
 
   if (today === null || !ym) return <main className="loading">{t.loading}</main>;
 
+  /** Login is on and this visitor is not signed in: they may look, not change (the server enforces it too). */
+  const readOnly = repo?.kind === "server" && serverInfo.login === "viewer";
   const selectDay = (date: CalendarDate, day: EpochDay) => { setSelected(day); setAddCalendar(date.calendar); };
-  const addOnDay = (date: CalendarDate, day: EpochDay) => { selectDay(date, day); setEditor({ date }); };
+  const addOnDay = (date: CalendarDate, day: EpochDay) => { selectDay(date, day); if (!readOnly) setEditor({ date }); };
   /** Open an event on the occurrence shown on `day` (repeating events edit that occurrence, Apple-style). */
   const openEvent = (uid: string, day: EpochDay) => {
     const ev = eventsByUid.get(uid);
     if (!ev) return;
     setSelected(day);
+    if (readOnly) return; // viewers read the details in the day list
     const occurrence = ev.recurrenceRules?.length ? expandEvent(ev, { start: day, end: day + 1 })[0] : undefined;
     setEditor({ existing: ev, date: ev.start, occurrence });
   };
@@ -168,7 +171,7 @@ export default function App() {
     try { localStorage.setItem(SIDEBAR_KEY, next ? "open" : "closed"); } catch { /* ignore */ }
   };
   /** New event on the selected day (or today), in the main calendar. */
-  const addOnSelected = () => setEditor({ date: getCalendar(addCalendar).fromEpochDay(selected ?? today) });
+  const addOnSelected = () => readOnly ? goToLogin() : setEditor({ date: getCalendar(addCalendar).fromEpochDay(selected ?? today) });
   const goToday = () => { setYm(ymOf(primary, today)); setSelected(today); setAddCalendar(primary); };
 
   // ── Keyboard control (layout-independent: letters are matched by physical key, e.code) ──
@@ -222,13 +225,13 @@ export default function App() {
       case "Enter": {
         if (tgt && tgt.tagName === "BUTTON" && !tgt.classList.contains("cell-hit")) { handled = false; break; } // let focused buttons work
         const first = dayEvents[0];
-        if (first) openEvent(first.eventUid, cur); else setEditor({ date: cal.fromEpochDay(cur) });
+        if (readOnly) handled = false; else if (first) openEvent(first.eventUid, cur); else setEditor({ date: cal.fromEpochDay(cur) });
         break;
       }
       default:
         switch (e.code) {
           case "KeyT": moveTo(today); break;
-          case "KeyN": setEditor({ date: cal.fromEpochDay(cur) }); break;
+          case "KeyN": if (readOnly) handled = false; else setEditor({ date: cal.fromEpochDay(cur) }); break;
           case "KeyM": switchMode(primary === "hebrew" ? "gregory" : "hebrew"); break;
           case "KeyC": toggleSidebar(); break;
           case "Comma": setShowSettings(true); break;
@@ -276,9 +279,16 @@ export default function App() {
           <button type="button" className="glass-btn icon-only" onClick={() => setShowSettings(true)} aria-label={t.settings} title={t.settings}>
             <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
           </button>
-          <button type="button" className="add-fab" onClick={addOnSelected} aria-label={t.newEvent} title={t.newEvent}>
-            <svg viewBox="0 0 20 20" aria-hidden><path d="M10 4v12M4 10h12" /></svg>
-          </button>
+          {readOnly ? (
+            <button type="button" className="glass-btn signin-btn" onClick={goToLogin} title={t.login.viewOnly}>
+              <svg viewBox="0 0 20 20" aria-hidden><rect x="4" y="9" width="12" height="8" rx="2" /><path d="M7 9V6.5a3 3 0 0 1 6 0V9" /></svg>
+              <span className="label">{t.login.signInToEdit}</span>
+            </button>
+          ) : (
+            <button type="button" className="add-fab" onClick={addOnSelected} aria-label={t.newEvent} title={t.newEvent}>
+              <svg viewBox="0 0 20 20" aria-hidden><path d="M10 4v12M4 10h12" /></svg>
+            </button>
+          )}
         </div>
       </header>
 
@@ -297,7 +307,7 @@ export default function App() {
       {sidebarOpen && <CalendarsPanel onClose={toggleSidebar} t={t} locale={locale} doc={doc} hidden={hidden}
         onToggle={(id) => updateView({ ...view, hiddenCollections: hidden.has(id) ? view.hiddenCollections.filter((x) => x !== id) : [...view.hiddenCollections, id] })}
         holidays={view.holidays} onHolidays={(h) => updateView({ ...view, holidays: h })}
-        serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()}
+        serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()} readOnly={readOnly}
         onCreate={(name, color) => guarded(() => repo!.createCollection({ name, color }))}
         onUpdate={(id, name, color) => guarded(() => repo!.updateCollection(id, { name, color }))}
         onDelete={(id) => guarded(() => repo!.removeCollection(id))} />}
@@ -359,7 +369,7 @@ export default function App() {
                 })}
               </ul>
             )}
-            <p className="muted small">{t.dayHint}</p>
+            <p className="muted small">{readOnly ? t.login.viewOnly : t.dayHint}</p>
           </section>
         );
       })()}
@@ -369,9 +379,15 @@ export default function App() {
       <nav className="bottom-bar" aria-label={t.calendars}>
         <button type="button" className="glass-btn" onClick={goToday}>{t.today}</button>
         <button type="button" className={`glass-btn${sidebarOpen ? " on" : ""}`} onClick={toggleSidebar} aria-expanded={sidebarOpen}>{t.calendars}</button>
-        <button type="button" className="add-fab" onClick={addOnSelected} aria-label={t.newEvent}>
-          <svg viewBox="0 0 20 20" aria-hidden><path d="M10 4v12M4 10h12" /></svg>
-        </button>
+        {readOnly ? (
+          <button type="button" className="glass-btn" onClick={goToLogin} aria-label={t.login.signInToEdit}>
+            <svg viewBox="0 0 20 20" aria-hidden><rect x="4" y="9" width="12" height="8" rx="2" /><path d="M7 9V6.5a3 3 0 0 1 6 0V9" /></svg>
+          </button>
+        ) : (
+          <button type="button" className="add-fab" onClick={addOnSelected} aria-label={t.newEvent}>
+            <svg viewBox="0 0 20 20" aria-hidden><path d="M10 4v12M4 10h12" /></svg>
+          </button>
+        )}
       </nav>
 
       {editor && repo && (

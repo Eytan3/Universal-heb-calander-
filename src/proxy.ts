@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { authConfig, isAuthorized } from "@/server/auth";
+import { authConfig, isAuthorized, publicView } from "@/server/auth";
 
 /**
- * Owner login gate. With UC_USER + UC_PASSWORD set, every page and API call needs a session,
+ * Owner login gate. On a private calendar (UC_VISIBILITY=private) every page and API call needs a session,
  * except the login page itself and the calendar feeds (which check their own token,
  * since calendar apps cannot log in). Route handlers check the session again.
  */
@@ -15,6 +15,8 @@ export async function proxy(req: NextRequest) {
     return path === "/login" ? NextResponse.redirect(new URL("/", req.url)) : NextResponse.next();
   }
   if (PUBLIC.some((re) => re.test(path))) return NextResponse.next();
+  // Public calendar: pages and reads are open; every API route still refuses changes without a session.
+  if (mode === "on" && publicView()) return NextResponse.next();
   if (mode === "on" && (await isAuthorized(req))) return NextResponse.next();
   if (path.startsWith("/api/")) {
     return NextResponse.json({ error: mode === "on" ? "login required" : "login misconfigured" }, { status: mode === "on" ? 401 : 500 });

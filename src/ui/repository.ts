@@ -33,7 +33,7 @@ export class AuthRequiredError extends Error {}
 class ServerError extends Error {}
 
 /** Server facts the UI needs: whether owner login is on, and the private feed key (signed-in owner only). */
-export const serverInfo = { login: "off" as "off" | "signed-in", feedToken: "", user: "" };
+export const serverInfo = { login: "off" as "off" | "signed-in" | "viewer", feedToken: "", user: "" };
 
 /** Add the private feed key (when there is one) to a calendar-feed URL. */
 export function withFeedToken(url: string): string {
@@ -41,7 +41,7 @@ export function withFeedToken(url: string): string {
   return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(serverInfo.feedToken)}`;
 }
 
-function goToLogin() {
+export function goToLogin() {
   if (typeof window === "undefined" || window.location.pathname === "/login") return;
   const next = window.location.pathname + window.location.search;
   window.location.replace(next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
@@ -128,7 +128,7 @@ export async function chooseRepository(): Promise<EventRepository> {
     const s = (await res.json()) as { storage?: string; login?: string; feedToken?: string; user?: string };
     if (res.status === 401) { goToLogin(); return new Promise<never>(() => undefined); }
     if (!res.ok) throw new ServerError((s as { error?: string }).error ?? `HTTP ${res.status}`);
-    serverInfo.login = s.login === "signed-in" ? "signed-in" : "off";
+    serverInfo.login = s.login === "signed-in" || s.login === "viewer" ? s.login : "off";
     serverInfo.feedToken = s.feedToken ?? "";
     serverInfo.user = s.user ?? "";
     return !s.storage || s.storage === "none" ? new BrowserRepository() : new ServerRepository(s.storage);

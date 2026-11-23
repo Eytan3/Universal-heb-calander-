@@ -7,8 +7,8 @@ import { getStore, mutate } from "@/server/storage";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  // When an edit token is configured, reading the events requires it too (they are private data).
-  const denied = await guard(req);
+  // Reading: open on a public calendar; needs the login on a private one, or the edit token when that is set.
+  const denied = await guard(req, "read");
   if (denied) return denied;
   try {
     const store = getStore();

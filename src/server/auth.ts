@@ -2,8 +2,10 @@
  * Single-owner login (user + password), configured only through environment variables:
  *   UC_USER, UC_PASSWORD        both set → login required for the app and its API
  *   UC_SESSION_SECRET           optional extra secret mixed into session/feed keys
- *   UC_FEED_TOKEN               optional fixed token for the Apple Calendar feed
- *                               (otherwise one is derived from the credentials)
+ *   UC_VISIBILITY               "public" (default): anyone may view, only the owner may change anything
+ *                               "private": viewing needs the login too
+ *   UC_FEED_TOKEN               optional fixed token for the Apple Calendar feed (with a private
+ *                               calendar one is otherwise derived from the credentials)
  *
  * Sessions are stateless: an HMAC-signed cookie `v1.<user>.<expiry>.<signature>`.
  * The signing key is derived from the credentials, so changing the password logs out every device.
@@ -26,6 +28,11 @@ export function authConfig(env: Env = process.env): AuthConfig {
   if (!user && !password) return { mode: "off" };
   if (!user || !password) return { mode: "misconfigured" };
   return { mode: "on", user, password, extra: env.UC_SESSION_SECRET ?? "" };
+}
+
+/** With login on: may people who are not signed in still view the calendar (read-only)? */
+export function publicView(env: Env = process.env): boolean {
+  return (env.UC_VISIBILITY ?? "public").trim().toLowerCase() !== "private";
 }
 
 const enc = new TextEncoder();
@@ -88,11 +95,11 @@ export async function verifySession(cfg: AuthConfig, cookie: string | undefined,
   return safeEqualText(parts[1], b64url(enc.encode(cfg.user)));
 }
 
-/** Token that unlocks /calendar.ics for calendar apps (which cannot log in). Empty → feed is open. */
+/** Token that unlocks /calendar.ics for calendar apps (which cannot log in). Empty → feed is open (as the calendar is). */
 export async function feedToken(env: Env = process.env): Promise<string> {
   if (env.UC_FEED_TOKEN) return env.UC_FEED_TOKEN;
   const cfg = authConfig(env);
-  if (cfg.mode !== "on") return "";
+  if (cfg.mode !== "on" || publicView(env)) return "";
   return b64url(await hmac(await masterKey(cfg), "feed")).slice(0, 32);
 }
 

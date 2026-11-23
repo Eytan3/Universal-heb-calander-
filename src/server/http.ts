@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { StoreError } from "@/core/events/store";
 import { StorageUnavailableError } from "./storage";
-import { authConfig, feedToken, isAuthorized } from "./auth";
+import { authConfig, feedToken, isAuthorized, publicView } from "./auth";
 
 export function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -25,14 +25,17 @@ export function checkEditToken(req: Request): Response | null {
 }
 
 /**
- * Access check for every API route. With owner login enabled (UC_USER + UC_PASSWORD) a valid session
- * cookie is required (the proxy checks this too; this is the second line of defence). Otherwise the
+ * Access check for every API route. With owner login enabled (UC_USER + UC_PASSWORD) changes always need
+ * a valid session cookie; reading needs one only when UC_VISIBILITY=private. Otherwise the
  * optional UC_EDIT_TOKEN applies. Returns an error Response, or null if allowed.
  */
-export async function guard(req: Request): Promise<Response | null> {
+export async function guard(req: Request, access: "read" | "write" = "write"): Promise<Response | null> {
   const mode = authConfig().mode;
   if (mode === "misconfigured") return json({ error: "login misconfigured: set both UC_USER and UC_PASSWORD" }, 500);
-  if (mode === "on") return (await isAuthorized(req)) ? null : json({ error: "login required" }, 401);
+  if (mode === "on") {
+    if (access === "read" && publicView()) return null; // public calendar: anyone may view
+    return (await isAuthorized(req)) ? null : json({ error: "login required" }, 401);
+  }
   return checkEditToken(req);
 }
 
