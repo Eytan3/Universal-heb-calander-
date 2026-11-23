@@ -126,9 +126,6 @@ export function MonthView(p: Props) {
           </h2>
         </div>
         <div className="month-controls">
-          <button type="button" className="icon" aria-label={t.prev} title={t.prev} onClick={() => p.onNavigate(cal.addMonths(ym, -1))}>
-            <span className="flip">‹</span>
-          </button>
           <select aria-label={t.month} value={ym.monthCode} onChange={(e) => p.onNavigate({ year: ym.year, monthCode: e.target.value })}>
             {months.map((m) => (
               <option key={m.monthCode} value={m.monthCode}>{cal.monthName({ year: ym.year, monthCode: m.monthCode }, locale)}</option>
@@ -150,10 +147,16 @@ export function MonthView(p: Props) {
               p.onNavigate({ year: y, monthCode: code });
             }}
           />
-          <button type="button" className="icon" aria-label={t.next} title={t.next} onClick={() => p.onNavigate(cal.addMonths(ym, 1))}>
-            <span className="flip">›</span>
-          </button>
-          <button type="button" className="text" onClick={() => { goTo(p.today); p.onDayClick(cal.fromEpochDay(p.today), p.today); }}>{t.today}</button>
+          {/* One elongated pill for month navigation: ‹ Today › (mirrors automatically in RTL). */}
+          <div className="month-nav" role="group" aria-label={t.month}>
+            <button type="button" className="nav-arrow" aria-label={t.prev} title={t.prev} onClick={() => p.onNavigate(cal.addMonths(ym, -1))}>
+              <svg viewBox="0 0 16 16" aria-hidden className="flip"><path d="M10 3.5L5.5 8l4.5 4.5" /></svg>
+            </button>
+            <button type="button" className="nav-today" onClick={() => { goTo(p.today); p.onDayClick(cal.fromEpochDay(p.today), p.today); }}>{t.today}</button>
+            <button type="button" className="nav-arrow" aria-label={t.next} title={t.next} onClick={() => p.onNavigate(cal.addMonths(ym, 1))}>
+              <svg viewBox="0 0 16 16" aria-hidden className="flip"><path d="M6 3.5L10.5 8 6 12.5" /></svg>
+            </button>
+          </div>
           {selectedOutside && (
             <button type="button" className="text" onClick={() => goTo(p.selected!)}>{t.goToSelected}</button>
           )}
