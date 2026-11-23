@@ -8,8 +8,9 @@ and its occurrences appear on the correct day in every calendar view and in an A
   grid is built from real Hebrew months (Adar I and Adar II in leap years, 29- or 30-day Cheshvan and
   Kislev), with the Gregorian date shown in each cell; in Gregorian mode it is the other way round.
 - A day list under the month, like Apple Calendar's list: it shows the selected day's events (today by default).
-- Events are added from either calendar and recur yearly *in that calendar*, with RFC 7529 handling for
-  dates that don't exist in a given year.
+- Events are added from either calendar and can repeat **daily, weekly, monthly or yearly, every N units**.
+  Monthly and yearly rules follow the event's own calendar (a Hebrew monthly event follows Hebrew months),
+  with RFC 7529 handling for dates that don't exist in a given month or year.
 - A JSON event store (documented schema) on disk locally, or in Upstash Redis on Vercel.
 - A live ICS feed (`/calendar.ics`) with stable UIDs, for Apple Calendar subscriptions.
 - English (LTR) and Hebrew (RTL) interface; responsive. Language, the feed link, storage status and the
@@ -52,9 +53,9 @@ npm start              # http://localhost:3000
 - **Add an event:** press *+ New event* under the month, or double-click a day. The editor opens in the
   current display's main calendar. You can switch it to the other calendar; the date is re-expressed as
   the same day.
-- **Yearly recurrence** is on by default and follows the event's own calendar. If the date can be missing
-  in some years (30 Cheshvan, 30 Kislev, Adar I, 29 February), the editor asks what to do:
-  move forward (the default, which matches the Hebrew birthday custom), move back, or skip that year.
+- **Repeat:** choose *Does not repeat*, *Daily*, *Weekly*, *Monthly* or *Yearly*, and "every N". Monthly
+  and yearly follow the event's calendar. If the date can be missing (the 30th in a 29-day Hebrew month,
+  the 31st, Adar I, 29 February), the editor asks what to do: move forward (default), move back, or skip.
 - **Edit or delete:** click an event in the month or in the day list.
 - **Navigate:** use ‹ › to move between months, or pick a month or year.
 - **Settings (⚙):** interface language (עברית / English), appearance (automatic, light or dark), the
@@ -73,7 +74,7 @@ It's useful for trying the UI or sharing a demo. Open the file directly, or host
 ## Tests
 
 ```bash
-npm test               # 36 tests: conversions vs ICU, recurrence, ICS, storage
+npm test               # 48 tests: conversions vs ICU, recurrence, ICS, storage
 npm run typecheck
 ```
 
@@ -102,7 +103,7 @@ Other → Add Subscribed Calendar**.
 | Where it runs | Storage | Configuration |
 |---|---|---|
 | `npm run dev` / `npm start` / any Node host | `data/events.json` | none (or `UC_DATA_FILE`) |
-| Vercel | Upstash Redis | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (or `KV_REST_API_URL` + `KV_REST_API_TOKEN`) |
+| Vercel | Redis (Upstash or Vercel's Redis) | Detected automatically: `REDIS_URL` / `KV_URL`, or Upstash REST pairs (`KV_REST_API_*`, `UPSTASH_REDIS_REST_*`, or any custom prefix). `/api/status` lists the variable names it found. |
 | Vercel **without** Redis | the browser's localStorage only | The app shows a warning. The ICS feed will be empty, because the server can't see browser data. |
 
 All variables are listed in [`.env.example`](./.env.example).

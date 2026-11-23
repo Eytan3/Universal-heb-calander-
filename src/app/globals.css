@@ -156,3 +156,6 @@ button:disabled { opacity: 0.55; cursor: default; }
 .mode-toggle.cal-gregory { background: var(--gregory); }
 .mode-toggle .arrows { font-size: 1.1rem; line-height: 1; }
 .actions .danger.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
+.repeat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; align-items: end; }
+.every-input { display: flex; align-items: center; gap: 0.5rem; }
+.every-input input { width: 5rem; }

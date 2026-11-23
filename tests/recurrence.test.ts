@@ -146,6 +146,6 @@ describe("event lifecycle", () => {
     expect(validateEventInput({ title: "x", start: H(5786, "M05L", 1) }).ok).toBe(false);
     expect(validateEventInput({ title: "x", start: { calendar: "julian", year: 1, monthCode: "M01", day: 1 } }).ok).toBe(false);
     expect(validateEventInput({ title: "x", start: H(5787, "M03", 15), recurrenceRules: [{ frequency: "yearly", rscale: "gregory" }] }).ok).toBe(false);
-    expect(validateEventInput({ title: "x", start: H(5787, "M03", 15), recurrenceRules: [{ frequency: "monthly" }] }).ok).toBe(false);
+    expect(validateEventInput({ title: "x", start: H(5787, "M03", 15), recurrenceRules: [{ frequency: "hourly" }] }).ok).toBe(false);
   });
 });

@@ -2,8 +2,9 @@
 import { useMemo, useState } from "react";
 import { CALENDAR_IDS, getCalendar } from "@/core/calendars/registry";
 import type { CalendarDate, CalendarId, Locale, SkipPolicy } from "@/core/calendars/types";
-import { expandEvent, mayBeMissing } from "@/core/events/expand";
-import { createEvent, validateEventInput, type EventInput, type UCEvent } from "@/core/events/schema";
+import { expandEvent, ruleMayHitMissingDate } from "@/core/events/expand";
+import { createEvent, FREQUENCIES, validateEventInput, type EventInput, type Frequency, type UCEvent } from "@/core/events/schema";
+import { describeRule } from "@/core/events/describe";
 import type { EpochDay } from "@/core/time/epochDay";
 import type { Strings } from "./i18n";
 
@@ -24,7 +25,10 @@ export function EventEditor(p: Props) {
   const [title, setTitle] = useState(ex?.title ?? "");
   const [description, setDescription] = useState(ex?.description ?? "");
   const [date, setDate] = useState<CalendarDate>(ex?.start ?? p.initialDate);
-  const [yearly, setYearly] = useState(ex ? Boolean(ex.recurrenceRules?.length) : true);
+  const exRule = ex?.recurrenceRules?.[0];
+  // "none" = one-time. New events default to yearly (birthdays, anniversaries).
+  const [frequency, setFrequency] = useState<Frequency | "none">(ex ? exRule?.frequency ?? "none" : "yearly");
+  const [interval, setInterval_] = useState<number>(exRule?.interval ?? 1);
   const [skip, setSkip] = useState<SkipPolicy>(ex?.recurrenceRules?.[0]?.skip ?? "forward");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,15 +56,22 @@ export function EventEditor(p: Props) {
     title,
     description: description || undefined,
     start: date,
-    recurrenceRules: yearly ? [{ "@type": "RecurrenceRule", frequency: "yearly", rscale: date.calendar, skip }] : undefined,
+    recurrenceRules: frequency !== "none"
+      ? [{ "@type": "RecurrenceRule", frequency, interval, rscale: date.calendar, ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}) }]
+      : undefined,
   };
-  const missing = yearly && mayBeMissing(cal, date.year, date.monthCode, date.day);
+  const existingOrDraftRule = () => {
+    const v = validateEventInput({ ...input, title: input.title || "x" });
+    return v.ok ? <p className="hint" dir="auto">{describeRule(createEvent(v.value, "d"), locale)}</p> : null;
+  };
+  const missing = frequency !== "none" && ruleMayHitMissingDate(cal, date, frequency);
 
   const preview = useMemo(() => {
     const v = validateEventInput({ ...input, title: input.title || "preview" });
     if (!v.ok) return [];
     const e = createEvent(v.value, "preview");
-    return expandEvent(e, { start: Math.min(p.today, cal.toEpochDay(date)), end: p.today + 366 * 12 }).slice(0, 4);
+    const horizon = frequency === "daily" ? 40 * interval : frequency === "weekly" ? 300 * interval : 366 * 12 * Math.max(1, frequency === "yearly" ? interval : 1);
+    return expandEvent(e, { start: Math.min(p.today, cal.toEpochDay(date)), end: p.today + horizon }).slice(0, 4);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(input), p.today]);
 
@@ -134,10 +145,26 @@ export function EventEditor(p: Props) {
         </div>
         <p className="hint" dir="auto">{cal.formatDate(date, locale)}</p>
 
-        <label className="check">
-          <input type="checkbox" checked={yearly} onChange={(e) => setYearly(e.target.checked)} />
-          <span>{t.repeatYearly}</span>
-        </label>
+        <div className="repeat-row">
+          <label className="field">
+            <span>{t.repeat}</span>
+            <select value={frequency} onChange={(e) => { setFrequency(e.target.value as Frequency | "none"); setInterval_(1); }}>
+              <option value="none">{t.repeatNone}</option>
+              {FREQUENCIES.map((f) => <option key={f} value={f}>{t.freq[f]}</option>)}
+            </select>
+          </label>
+          {frequency !== "none" && (
+            <label className="field every">
+              <span>{t.every}</span>
+              <div className="every-input">
+                <input type="number" min={1} max={1000} value={interval}
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 1000) setInterval_(n); }} />
+                <span>{t.unit[frequency](interval)}</span>
+              </div>
+            </label>
+          )}
+        </div>
+        {frequency !== "none" && existingOrDraftRule()}
 
         {missing && (
           <label className="field">

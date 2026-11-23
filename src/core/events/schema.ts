@@ -16,14 +16,22 @@ import type { CalendarDate, CalendarId, SkipPolicy } from "../calendars/types";
 
 export const SCHEMA_VERSION = 1 as const;
 
+export type Frequency = "daily" | "weekly" | "monthly" | "yearly";
+export const FREQUENCIES: Frequency[] = ["daily", "weekly", "monthly", "yearly"];
+
 export interface RecurrenceRule {
   "@type": "RecurrenceRule";
-  frequency: "yearly";
+  /**
+   * daily / weekly: every N days / weeks from the start day (identical in every calendar).
+   * monthly: the same day-of-month every N months *of the event's calendar* (Hebrew months for Hebrew events).
+   * yearly: the same month and day every N years of the event's calendar.
+   */
+  frequency: Frequency;
   /** Calendar in which the rule is evaluated. MUST equal start.calendar in v1. */
   rscale: CalendarId;
-  /** Every N years (default 1). */
+  /** Every N units of the frequency (default 1). */
   interval?: number;
-  /** RFC 7529 SKIP for dates missing in a year. Default "omit" (RFC 7529 default). */
+  /** RFC 7529 SKIP for dates missing in a month/year (monthly and yearly only). Default "omit" (RFC 7529 default). */
   skip?: SkipPolicy;
 }
 
@@ -90,15 +98,19 @@ export function validateEventInput(raw: unknown): ValidationResult<EventInput> {
     else if (o.recurrenceRules.length > 1) errors.push("v1 supports at most one recurrence rule");
     else if (o.recurrenceRules.length === 1) {
       const r = o.recurrenceRules[0] as Record<string, unknown>;
-      if (r.frequency !== "yearly") errors.push("recurrence frequency must be 'yearly'");
+      const frequency = r.frequency as Frequency;
+      if (!FREQUENCIES.includes(frequency)) errors.push("recurrence frequency must be daily, weekly, monthly or yearly");
       if (start && r.rscale !== undefined && r.rscale !== start.calendar)
         errors.push("recurrence rscale must equal start.calendar");
       const interval = r.interval === undefined ? 1 : Number(r.interval);
-      if (!Number.isInteger(interval) || interval < 1 || interval > 100) errors.push("interval must be 1–100");
+      if (!Number.isInteger(interval) || interval < 1 || interval > 1000) errors.push("interval must be 1–1000");
       const skip = (r.skip ?? "omit") as SkipPolicy;
       if (!SKIPS.includes(skip)) errors.push("skip must be omit, backward or forward");
       if (start && errors.length === 0)
-        recurrenceRules = [{ "@type": "RecurrenceRule", frequency: "yearly", rscale: start.calendar, interval, skip }];
+        recurrenceRules = [{
+          "@type": "RecurrenceRule", frequency, rscale: start.calendar, interval,
+          ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}),
+        }];
     }
   }
 

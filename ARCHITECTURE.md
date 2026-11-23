@@ -158,10 +158,10 @@ later is a one-file change.
 | `showWithoutTime` | `true` | JSCalendar's all-day flag. v1 supports all-day events only. |
 | `start` | `CalendarDate` | **The native date, in the event's own calendar.** |
 | `recurrenceRules` | `[RecurrenceRule]?` | At most one in v1. Absent means a one-time event. |
-| `recurrenceRules[0].frequency` | `"yearly"` | Only yearly in v1. |
+| `recurrenceRules[0].frequency` | `daily`, `weekly`, `monthly` or `yearly` | See *Recurrence semantics*. |
 | `recurrenceRules[0].rscale` | calendar id | The calendar the rule is evaluated in. Must equal `start.calendar`. |
-| `recurrenceRules[0].interval` | int ≥ 1 | Every N years (in that calendar). |
-| `recurrenceRules[0].skip` | `omit`, `backward` or `forward` | RFC 7529 handling of dates missing in a year. Absent means `omit` (the RFC default). |
+| `recurrenceRules[0].interval` | int 1–1000 | Every N units (months and years counted in the event's calendar). |
+| `recurrenceRules[0].skip` | `omit`, `backward` or `forward` | RFC 7529 handling of dates missing in a month/year (monthly and yearly only). Absent means `omit` (the RFC default). |
 | `created`, `updated` | RFC 3339 UTC | Server-managed. |
 | `sequence` | int | Incremented on every edit. Exported as iCalendar `SEQUENCE`. |
 
@@ -178,6 +178,14 @@ definition, and every view and the feed recompute.
 | **iCalendar (RFC 5545)** | Output format for the ICS feed. | The feed is derived output. We do not emit RRULE/RSCALE because Apple Calendar does not implement RSCALE. See §5. |
 
 ### Recurrence semantics
+
+| Frequency | Evaluated in | Meaning |
+|---|---|---|
+| `daily`, `weekly` | the absolute day axis | Every N days / 7·N days from the start day. Identical in every calendar, so no calendar choice is involved. |
+| `monthly` | the event's calendar | The same day-of-month every N months *of that calendar*. A Hebrew monthly event follows Hebrew months, Adar I included in leap years. A day the month lacks (30th in a 29-day month, 31st) follows SKIP: omit, last day (backward) or 1st of next month (forward). |
+| `yearly` | the event's calendar | As described below. |
+
+The rest of this section describes yearly rules.
 
 `expandEvent(event, range)` iterates **years of the event's own calendar**. For each year it resolves
 `(monthCode, day)` with `resolveYearlyDate`:
@@ -234,6 +242,9 @@ calendar means adding a third mode.
 
 ### ICS feed (`GET /calendar.ics`)
 
+- **Daily and weekly rules** are calendar-independent, so they are exported as one VEVENT with a standard
+  `RRULE:FREQ=DAILY|WEEKLY;INTERVAL=n`, which every client expands itself.
+
 - **Materialised occurrences.** Apple Calendar (and Google, and Outlook) do not implement RSCALE, so the
   feed contains one all-day `VEVENT` per occurrence, with `DTSTART;VALUE=DATE` and an exclusive
   `DTEND;VALUE=DATE` (next day), as RFC 5545 requires for all-day events.
@@ -261,7 +272,7 @@ The store is one small JSON document (`{ schemaVersion: 1, events: [...] }`), re
 | Backend | When | Notes |
 |---|---|---|
 | `file` | Local `next dev` / `next start`, any self-hosted Node server | `data/events.json` (or `UC_DATA_FILE`). Atomic write via temp file and rename. |
-| `redis` | `UPSTASH_REDIS_REST_URL`+`TOKEN` or `KV_REST_API_URL`+`TOKEN` set | Upstash Redis over its REST API, one key. Works on Vercel's serverless functions. Free tier. |
+| `redis` | Redis credentials found in the environment (see `detectRedis`) | Upstash REST API (`*_REST_API_URL`/`TOKEN`, any prefix) or the standard Redis protocol (`REDIS_URL`, `KV_URL`, `*_REDIS_URL`) via node-redis. One key. Works on Vercel. |
 | `none` | On Vercel with neither of the above | Server writes return 503. The UI switches to **browser storage** (localStorage) and states plainly that the ICS feed cannot see those events. |
 
 **Why Upstash Redis?** Vercel's serverless file system is read-only apart from an ephemeral `/tmp`, so a
@@ -310,7 +321,7 @@ edit. Two optional shared secrets cover the single-user case:
 **Known limitations of v1**
 - The display mode is stored per browser, not per user.
 - All-day events only. There are no timed events and no event time zones.
-- Only `yearly` recurrence, with no `until`/`count` and no exceptions (EXDATE).
+- Recurrence by day, week, month or year with an interval; no `until`/`count`, no "nth weekday of the month", and no exceptions (EXDATE).
 - Civil (midnight) day boundaries only. There is no sunset or erev logic.
 - No yahrzeit mode (intentionally; see §4).
 - Single user; last write wins.

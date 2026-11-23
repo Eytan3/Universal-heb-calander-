@@ -6,7 +6,7 @@
 import { getCalendar } from "../calendars/registry";
 import type { CalendarAdapter, CalendarDate, SkipPolicy } from "../calendars/types";
 import type { EpochDay } from "../time/epochDay";
-import type { UCEvent } from "./schema";
+import type { Frequency, UCEvent } from "./schema";
 
 export type Adjustment = "none" | "month-substituted" | "day-backward" | "day-forward";
 
@@ -69,6 +69,9 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
       : [];
   }
 
+  if (rule.frequency === "daily" || rule.frequency === "weekly") return expandFixedStep(event, range);
+  if (rule.frequency === "monthly") return expandMonthly(event, range);
+
   const interval = rule.interval ?? 1;
   const skip = rule.skip ?? "omit";
   // A small margin of native years either side covers year boundaries that do not align with the range.
@@ -89,6 +92,62 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
   return out;
 }
 
+/** Safety cap on occurrences produced by one event for one range. */
+const MAX_OCCURRENCES = 5000;
+
+/** Daily / weekly: a fixed number of days on the absolute axis — the same in every calendar. */
+function expandFixedStep(event: UCEvent, range: Range): Occurrence[] {
+  const cal = getCalendar(event.start.calendar);
+  const rule = event.recurrenceRules![0];
+  const step = (rule.interval ?? 1) * (rule.frequency === "weekly" ? 7 : 1);
+  const first = cal.toEpochDay(event.start);
+  const k0 = Math.max(0, Math.ceil((range.start - first) / step));
+  const out: Occurrence[] = [];
+  for (let d = first + k0 * step; d < range.end && out.length < MAX_OCCURRENCES; d += step) {
+    out.push({ eventUid: event.uid, key: `day-${d}`, epochDay: d, native: cal.fromEpochDay(d), adjustment: "none" });
+  }
+  return out;
+}
+
+/**
+ * Monthly: the same day-of-month every N months of the event's own calendar.
+ * A Hebrew monthly event follows Hebrew months (including Adar I in leap years);
+ * a 30th that a 29-day month lacks is handled by the rule's SKIP policy.
+ */
+function expandMonthly(event: UCEvent, range: Range): Occurrence[] {
+  const cal = getCalendar(event.start.calendar);
+  const rule = event.recurrenceRules![0];
+  const interval = rule.interval ?? 1;
+  const skip = rule.skip ?? "omit";
+  const { start } = event;
+  const startYm = { year: start.year, monthCode: start.monthCode };
+  const firstDay = cal.toEpochDay(start);
+
+  // Jump close to the range instead of walking every month since the start (months are ≥ 28 days).
+  let k = Math.max(0, Math.floor((range.start - firstDay) / 31) - 2);
+  k -= k % interval;
+  const out: Occurrence[] = [];
+  for (; out.length < MAX_OCCURRENCES; k += interval) {
+    const ym = cal.addMonths(startYm, k);
+    if (ym.year > cal.maxYear) break;
+    const monthStart = cal.toEpochDay({ ...ym, day: 1 });
+    if (monthStart >= range.end) break;
+    const days = cal.daysInMonth(ym.year, ym.monthCode)!;
+    let date: CalendarDate | null = { calendar: cal.id, ...ym, day: start.day };
+    let adjustment: Adjustment = "none";
+    if (start.day > days) {
+      if (skip === "omit") date = null;
+      else if (skip === "backward") { date = { calendar: cal.id, ...ym, day: days }; adjustment = "day-backward"; }
+      else { date = { calendar: cal.id, ...cal.addMonths(ym, 1), day: 1 }; adjustment = "day-forward"; }
+    }
+    if (!date) continue;
+    const epochDay = cal.toEpochDay(date);
+    if (epochDay < range.start || epochDay >= range.end || epochDay < firstDay) continue;
+    out.push({ eventUid: event.uid, key: `${cal.id}-${ym.year}-${ym.monthCode}`, epochDay, native: date, adjustment });
+  }
+  return out;
+}
+
 export function expandAll(events: UCEvent[], range: Range): Occurrence[] {
   return events.flatMap((e) => expandEvent(e, range)).sort((a, b) => a.epochDay - b.epochDay || a.eventUid.localeCompare(b.eventUid));
 }
@@ -101,6 +160,18 @@ export function byDay(occurrences: Occurrence[]): Map<EpochDay, Occurrence[]> {
     if (list) list.push(o); else m.set(o.epochDay, [o]);
   }
   return m;
+}
+
+/** True if the rule's date can be missing in some occurrence, so the editor should ask for a SKIP policy. */
+export function ruleMayHitMissingDate(cal: CalendarAdapter, start: CalendarDate, frequency: Frequency): boolean {
+  if (frequency === "yearly") return mayBeMissing(cal, start.year, start.monthCode, start.day);
+  if (frequency === "monthly") {
+    for (let k = 1; k <= 26; k++) {
+      const ym = cal.addMonths({ year: start.year, monthCode: start.monthCode }, k);
+      if (start.day > cal.daysInMonth(ym.year, ym.monthCode)!) return true;
+    }
+  }
+  return false;
 }
 
 /** True if month/day fails to exist in at least one year of the calendar's pattern cycle (used by editors). */

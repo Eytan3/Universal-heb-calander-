@@ -6,6 +6,8 @@
  * a bounded rolling window — encoded with conventional Gregorian DATE values.
  * The feed is derived output only; it is never read back as source of truth.
  *
+ * Daily and weekly rules are calendar-independent and are exported as a plain RRULE instead.
+ *
  * Stability: each VEVENT UID is `<event uid>.<calendar>-<native year>@<domain>`,
  * so an occurrence keeps its UID across feed refreshes and across edits to the
  * event (an edit moves the occurrence instead of duplicating it).
@@ -62,6 +64,21 @@ function icsUtc(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+function veventHead(ev: UCEvent, uid: string, day: EpochDay): string[] {
+  return [
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${icsUtc(ev.updated)}`,
+    `LAST-MODIFIED:${icsUtc(ev.updated)}`,
+    `CREATED:${icsUtc(ev.created)}`,
+    `SEQUENCE:${ev.sequence}`,
+    `DTSTART;VALUE=DATE:${icsDate(day)}`,
+    `DTEND;VALUE=DATE:${icsDate(day + 1)}`,
+    `SUMMARY:${escapeText(ev.title)}`,
+    "TRANSP:TRANSPARENT",
+  ];
+}
+
 export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
   const domain = opts.uidDomain ?? "universal-calendar";
   const name = opts.calendarName ?? "Universal Calendar";
@@ -80,7 +97,28 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
     `X-PUBLISHED-TTL:${refresh}`,
   ];
 
-  for (const occ of expandAll(events, opts.range)) {
+  const isFixedStep = (e: UCEvent) => {
+    const f = e.recurrenceRules?.[0]?.frequency;
+    return f === "daily" || f === "weekly";
+  };
+
+  // Daily / weekly rules are the same in every calendar, so they are exported as a standard
+  // RRULE that every client understands — one VEVENT per event, no materialisation needed.
+  for (const ev of events.filter(isFixedStep)) {
+    const cal = getCalendar(ev.start.calendar);
+    const rule = ev.recurrenceRules![0];
+    const first = cal.toEpochDay(ev.start);
+    lines.push(
+      ...veventHead(ev, `${ev.uid}.rule@${domain}`, first),
+      `RRULE:FREQ=${rule.frequency.toUpperCase()};INTERVAL=${rule.interval ?? 1}`,
+      `DESCRIPTION:${escapeText([`Rule: ${describeRule(ev, "en")}`, ev.description].filter(Boolean).join("\n"))}`,
+      "END:VEVENT",
+    );
+  }
+
+  // Monthly / yearly / one-time: materialised occurrences, because their meaning depends on
+  // the event's own calendar (e.g. Hebrew months), which clients cannot compute.
+  for (const occ of expandAll(events.filter((e) => !isFixedStep(e)), opts.range)) {
     const ev = byUid.get(occ.eventUid)!;
     const cal = getCalendar(ev.start.calendar);
     const nativeEn = cal.formatDate(occ.native, "en");
@@ -92,17 +130,8 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
     ].filter(Boolean) as string[];
 
     lines.push(
-      "BEGIN:VEVENT",
-      `UID:${ev.uid}.${occ.key}@${domain}`,
-      `DTSTAMP:${icsUtc(ev.updated)}`,
-      `LAST-MODIFIED:${icsUtc(ev.updated)}`,
-      `CREATED:${icsUtc(ev.created)}`,
-      `SEQUENCE:${ev.sequence}`,
-      `DTSTART;VALUE=DATE:${icsDate(occ.epochDay)}`,
-      `DTEND;VALUE=DATE:${icsDate(occ.epochDay + 1)}`,
-      `SUMMARY:${escapeText(ev.title)}`,
+      ...veventHead(ev, `${ev.uid}.${occ.key}@${domain}`, occ.epochDay),
       `DESCRIPTION:${escapeText(descParts.join("\n"))}`,
-      "TRANSP:TRANSPARENT",
       `X-UNIVERSAL-CALENDAR-NATIVE-DATE:${occ.native.calendar}:${occ.native.year}-${occ.native.monthCode}-${String(occ.native.day).padStart(2, "0")}`,
       "END:VEVENT",
     );
