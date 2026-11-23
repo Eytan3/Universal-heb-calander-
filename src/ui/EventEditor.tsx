@@ -6,7 +6,7 @@
  * A repeat always starts from the event's own date. Months and years are counted in the
  * event's calendar (a Hebrew monthly event follows Hebrew months).
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CALENDAR_IDS, getCalendar } from "@/core/calendars/registry";
 import type { CalendarAdapter, CalendarDate, CalendarId, Locale, SkipPolicy } from "@/core/calendars/types";
 import { describeRule } from "@/core/events/describe";
@@ -126,6 +126,12 @@ export function EventEditor(p: Props) {
         }]
       : undefined,
   };
+  // Snapshot of the event as it opened. If nothing differs, "Done" just closes (like Cancel):
+  // no scope question, no accidental series split, no needless SEQUENCE bump for subscribed calendars.
+  const initialInput = useRef<string | null>(null);
+  if (initialInput.current === null) initialInput.current = JSON.stringify(input);
+  const dirty = JSON.stringify(input) !== initialInput.current;
+
   const draft = useMemo(() => {
     const v = validateEventInput({ ...input, title: input.title || "—" });
     return v.ok ? createEvent(v.value, "draft") : null;
@@ -157,6 +163,7 @@ export function EventEditor(p: Props) {
 
   function save(e: React.FormEvent) {
     e.preventDefault();
+    if (ex && !dirty) { p.onClose(); return; } // unchanged: same as Cancel
     const v = validateEventInput(input);
     if (!v.ok) { setError(v.errors.join(", ")); return; }
     if (occ) { setAsk("save"); return; } // repeating event: ask which occurrences to change
