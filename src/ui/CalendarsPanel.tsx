@@ -12,6 +12,7 @@ import type { Strings } from "./i18n";
 import type { HolidayPrefs } from "./viewPrefs";
 import { exportIcs, exportJson } from "./export";
 import { withFeedToken } from "./repository";
+import type { ImportOutcome } from "./importFile";
 
 interface Props {
   /** Closes the panel (used by the sheet's Done button on phones). */
@@ -32,6 +33,8 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   /** Viewer of a public calendar (not signed in): links and exports only, no changes. */
   readOnly?: boolean;
+  /** Import a .json backup (absent when importing is not allowed). */
+  onImportFile?: (file: File) => Promise<ImportOutcome>;
 }
 
 export function displayName(c: Collection, t: Strings) {
@@ -64,6 +67,7 @@ export function CalendarsPanel(p: Props) {
   const [creating, setCreating] = useState<{ name: string; color: string } | null>(null);
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState<{ busy?: boolean } & Partial<ImportOutcome> | null>(null);
   const { copied, copy } = useCopy();
 
   const run = async (fn: () => Promise<void>) => {
@@ -166,6 +170,28 @@ export function CalendarsPanel(p: Props) {
         </div>
         <span className="muted small">{t.exportNote}</span>
       </div>
+
+      {p.onImportFile && !p.readOnly && (
+        <div className="side-export">
+          <span className="muted small">{t.importTitle}</span>
+          <div className="row-actions">
+            <label className={`opt${importing?.busy ? " disabled" : ""}`}>
+              {importing?.busy ? t.importWorking : t.importButton}
+              <input type="file" accept=".json,application/json" hidden disabled={importing?.busy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]; e.target.value = "";
+                  if (f && p.onImportFile) { setImporting({ busy: true }); void p.onImportFile(f).then(setImporting); }
+                }} />
+            </label>
+          </div>
+          {importing?.message && (
+            <span className={`small${importing.error ? " import-error" : " muted"}`} role="status">
+              {importing.message}
+              {importing.problems && importing.problems.length > 0 && <> {t.importProblems(importing.problems.length)} {importing.problems.slice(0, 5).join(" · ")}</>}
+            </span>
+          )}
+        </div>
+      )}
 
       <h2 className="side-title">{t.builtIn}</h2>
       <ul className="cal-list">

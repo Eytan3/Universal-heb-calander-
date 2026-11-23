@@ -7,6 +7,7 @@ import { isPreview } from "./preview";
 import { getEditToken, goToLogin, logout, serverInfo, setEditToken, withFeedToken, type EventRepository } from "./repository";
 import type { EventStoreDocument } from "@/core/events/schema";
 import { exportIcs, exportJson } from "./export";
+import { importFromFile } from "./importFile";
 
 interface Props {
   t: Strings;
@@ -29,16 +30,7 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
   async function importFile(file: File) {
     if (!repo) return;
     setImportState({ busy: true });
-    let data: unknown;
-    try { data = JSON.parse(await file.text()); } catch { setImportState({ message: t.importBadFile, error: true }); return; }
-    try {
-      const r = await repo.importBackup(data);
-      await onImported();
-      setImportState({ message: t.importDone(r.added, r.skipped, r.calendarsCreated), problems: r.errors });
-    } catch (e) {
-      const msg = (e as Error).message;
-      setImportState({ message: /not an Ittim backup|Unrecognised/.test(msg) ? t.importBadFile : msg, error: true });
-    }
+    setImportState(await importFromFile(repo, file, t, onImported));
   }
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState(getEditToken());

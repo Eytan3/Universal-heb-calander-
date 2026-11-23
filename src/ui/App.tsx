@@ -15,6 +15,7 @@ import { EventEditor, type Scope } from "./EventEditor";
 import { STRINGS } from "./i18n";
 import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
+import { importFromFile } from "./importFile";
 import { isPreview } from "./preview";
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { AuthRequiredError, chooseRepository, goToLogin, serverInfo, setEditToken, type EventRepository } from "./repository";
@@ -308,6 +309,7 @@ export default function App() {
         onToggle={(id) => updateView({ ...view, hiddenCollections: hidden.has(id) ? view.hiddenCollections.filter((x) => x !== id) : [...view.hiddenCollections, id] })}
         holidays={view.holidays} onHolidays={(h) => updateView({ ...view, holidays: h })}
         serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()} readOnly={readOnly}
+        onImportFile={repo ? (f) => importFromFile(repo, f, t, reload) : undefined}
         onCreate={(name, color) => guarded(() => repo!.createCollection({ name, color }))}
         onUpdate={(id, name, color) => guarded(() => repo!.updateCollection(id, { name, color }))}
         onDelete={(id) => guarded(() => repo!.removeCollection(id))} />}

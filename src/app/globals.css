@@ -366,3 +366,5 @@ label.link-row { cursor: pointer; }
 label.link-row.disabled { opacity: 0.6; cursor: default; }
 .import-error { color: var(--danger); }
 .import-problems { margin: 0.3rem 0 0; padding-inline-start: 1.1rem; }
+label.opt { cursor: pointer; display: inline-flex; align-items: center; }
+label.opt.disabled { opacity: 0.6; cursor: default; }
