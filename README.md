@@ -1,6 +1,7 @@
 # עִתִּים · Ittim
 
-> Formerly "Universal Calendar". One timeline, many calendars — Hebrew and Gregorian as equals.
+> כל הלוחות ללא פשרות — every calendar, no compromise. The Hebrew calendar is respected as fully as the
+> Gregorian one: a date set in Hebrew stays that Hebrew date, never a translation. (Formerly "Universal Calendar".)
 
 A calendar-neutral scheduling app in which the **Hebrew** and **Gregorian** calendars are both first-class.
 An event keeps the meaning of the calendar it was created in. "15 Kislev, every year" stays 15 Kislev,
