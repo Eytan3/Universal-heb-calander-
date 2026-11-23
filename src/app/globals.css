@@ -123,10 +123,13 @@ button:disabled { opacity: 0.5; cursor: default; }
 .month-title-row { grid-area: title; }
 .month-nav { grid-area: nav; justify-self: center; }
 .month-controls { grid-area: controls; justify-self: end; }
-.month-meta { grid-area: meta; }
+.month-meta-row { grid-area: meta; display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 1.6rem; }
+.goto-selected { border: 0; background: transparent; color: var(--accent); font-weight: 600; font-size: 0.82rem; padding: 0.15rem 0.4rem; border-radius: 6px; white-space: nowrap; }
+.goto-selected:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 @media (max-width: 760px) {
   .month-head { grid-template-columns: 1fr; grid-template-areas: "title" "nav" "controls" "meta"; }
   .month-title-row, .month-controls { justify-self: center; }
+  .month-meta-row { flex-wrap: wrap; justify-content: center; }
 }
 .month-title-row { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; min-width: 0; }
 .month-title-row h2 { font-size: 1.75rem; }

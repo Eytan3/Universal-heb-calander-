@@ -157,16 +157,20 @@ export function MonthView(p: Props) {
               p.onNavigate({ year: y, monthCode: code });
             }}
           />
+        </div>
+        {/* Second line: month details, and "go to selected day" — kept out of the top row so the
+            month/year pickers never move. */}
+        <div className="month-meta-row">
+          <p className="month-meta">
+            {t.days(daysInMonth)}
+            {isLeapCal && <> · {cal.isLeapYear(ym.year) ? t.leapYear : t.commonYear}</>}
+            {" · "}
+            <span dir="auto">{span}</span>
+          </p>
           {selectedOutside && (
-            <button type="button" className="text" onClick={() => goTo(p.selected!)}>{t.goToSelected}</button>
+            <button type="button" className="goto-selected" onClick={() => goTo(p.selected!)}>{t.goToSelected} ↩</button>
           )}
         </div>
-        <p className="month-meta">
-          {t.days(daysInMonth)}
-          {isLeapCal && <> · {cal.isLeapYear(ym.year) ? t.leapYear : t.commonYear}</>}
-          {" · "}
-          <span dir="auto">{span}</span>
-        </p>
       </header>
       <div className="grid" role="grid">
         {WEEK_SUN.map((ms) => (
