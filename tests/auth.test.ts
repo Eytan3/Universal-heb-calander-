@@ -15,7 +15,10 @@ describe("owner login", () => {
   it("accepts only the exact user and password", async () => {
     expect(await checkCredentials(cfg, "eytan", env.UC_PASSWORD)).toBe(true);
     expect(await checkCredentials(cfg, "eytan", "wrong")).toBe(false);
-    expect(await checkCredentials(cfg, "Eytan", env.UC_PASSWORD)).toBe(false);
+    expect(await checkCredentials(cfg, " Eytan ", env.UC_PASSWORD)).toBe(true); // user name: case and spaces ignored
+    expect(await checkCredentials(cfg, "eytan", env.UC_PASSWORD.toUpperCase())).toBe(false); // password: exact
+    expect(await checkCredentials(authConfig({ UC_USER: "eytan \n", UC_PASSWORD: " pw\n" }), "eytan", "pw")).toBe(true); // pasted spaces
+    expect(await checkCredentials(cfg, "other", env.UC_PASSWORD)).toBe(false);
     expect(await checkCredentials(cfg, "", "")).toBe(false);
     expect(await checkCredentials(authConfig({}), "", "")).toBe(false);
   });

@@ -24,8 +24,9 @@ export type AuthConfig =
   | { mode: "on"; user: string; password: string; extra: string };
 
 export function authConfig(env: Env = process.env): AuthConfig {
-  const user = env.UC_USER ?? "";
-  const password = env.UC_PASSWORD ?? "";
+  // Trimmed: a space or newline pasted into the hosting dashboard must not make the login impossible.
+  const user = (env.UC_USER ?? "").trim();
+  const password = (env.UC_PASSWORD ?? "").trim();
   if (!user && !password) return { mode: "off" };
   if (!user || !password) return { mode: "misconfigured" };
   return { mode: "on", user, password, extra: env.UC_SESSION_SECRET ?? "" };
@@ -73,8 +74,10 @@ async function masterKey(cfg: Extract<AuthConfig, { mode: "on" }>): Promise<Uint
 
 export async function checkCredentials(cfg: AuthConfig, user: string, password: string): Promise<boolean> {
   if (cfg.mode !== "on") return false;
-  const okUser = await safeEqualText(user, cfg.user);
-  const okPass = await safeEqualText(password, cfg.password);
+  // The user name ignores case and surrounding spaces (phones capitalise the first letter);
+  // the password is exact apart from surrounding spaces.
+  const okUser = await safeEqualText(user.trim().toLowerCase(), cfg.user.toLowerCase());
+  const okPass = await safeEqualText(password.trim(), cfg.password);
   return okUser && okPass;
 }
 
