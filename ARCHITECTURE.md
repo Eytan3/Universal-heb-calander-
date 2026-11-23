@@ -1,4 +1,8 @@
-# Universal Calendar — Architecture
+# Ittim (עִתִּים) — Architecture
+
+> The app was renamed from "Universal Calendar". Storage keys (`universal-calendar:*`), the Redis key and the
+> default ICS UID domain (`universal-calendar`) deliberately keep the old name, so saved events, settings and
+> existing Apple Calendar subscriptions keep working.
 
 > Time is universal. Calendars are interpretations of time. No calendar is the source of truth for another.
 > The same absolute day can be represented in many calendars, but the meaning and recurrence of an event

@@ -25,7 +25,7 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Universal Calendar — preview</title>
+<title>עִתִּים · Ittim — preview</title>
 <script>${THEME_BOOT}</script>
 <style>${css}</style>
 </head>

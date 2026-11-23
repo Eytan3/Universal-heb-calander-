@@ -1,7 +1,7 @@
 /**
  * Export of the user's own events (never built-in holidays):
  *  - ICS: opens in any calendar app (dates computed; daily/weekly as RRULE).
- *  - JSON: lossless backup in Universal Calendar's own schema (keeps Hebrew dates and rules).
+ *  - JSON: lossless backup in Ittim's own schema (keeps Hebrew dates and rules).
  */
 import type { Collection, EventStoreDocument, UCEvent } from "@/core/events/schema";
 import { buildIcs } from "@/core/export/ics";

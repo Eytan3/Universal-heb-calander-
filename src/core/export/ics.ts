@@ -82,14 +82,14 @@ function veventHead(ev: UCEvent, uid: string, day: EpochDay): string[] {
 
 export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
   const domain = opts.uidDomain ?? "universal-calendar";
-  const name = opts.calendarName ?? "Universal Calendar";
+  const name = opts.calendarName ?? "Ittim";
   const refresh = opts.refreshInterval ?? "PT6H";
   const byUid = new Map(events.map((e) => [e.uid, e]));
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Universal Calendar//Universal Calendar 0.1//EN",
+    "PRODID:-//Ittim//Ittim 0.1//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `NAME:${escapeText(name)}`,
@@ -171,7 +171,7 @@ export function buildHolidaysIcs(
   const domain = opts.uidDomain ?? "universal-calendar";
   const refresh = opts.refreshInterval ?? "P1D";
   const lines = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Universal Calendar//Universal Calendar 0.1//EN",
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ittim//Ittim 0.1//EN",
     "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     `NAME:${escapeText(opts.calendarName)}`, `X-WR-CALNAME:${escapeText(opts.calendarName)}`,
     `REFRESH-INTERVAL;VALUE=DURATION:${refresh}`, `X-PUBLISHED-TTL:${refresh}`,

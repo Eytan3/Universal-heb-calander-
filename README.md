@@ -1,4 +1,6 @@
-# Universal Calendar
+# עִתִּים · Ittim
+
+> Formerly "Universal Calendar". One timeline, many calendars — Hebrew and Gregorian as equals.
 
 A calendar-neutral scheduling app in which the **Hebrew** and **Gregorian** calendars are both first-class.
 An event keeps the meaning of the calendar it was created in. "15 Kislev, every year" stays 15 Kislev,
@@ -145,7 +147,7 @@ All variables are listed in [`.env.example`](./.env.example).
 
 1. **Push to GitHub**
    ```bash
-   git init && git add . && git commit -m "Universal Calendar MVP"   # (already done if you received the repo)
+   git init && git add . && git commit -m "Ittim MVP"   # (already done if you received the repo)
    gh repo create universal-calendar --public --source=. --push       # or create the repo on github.com and:
    # git remote add origin git@github.com:<you>/universal-calendar.git && git push -u origin main
    ```

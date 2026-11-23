@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const id = url.searchParams.get("collection");
     const collection = id ? doc.collections.find((c) => c.id === id) : undefined;
     if (id && !collection) return new Response("Not found", { status: 404 });
-    const base = process.env.UC_CALENDAR_NAME ?? "Universal Calendar";
+    const base = process.env.UC_CALENDAR_NAME ?? "Ittim";
     const events = collection ? doc.events.filter((e) => e.collectionId === collection.id) : doc.events;
     const body = buildIcs(events, {
       range: feedRange(),
