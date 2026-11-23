@@ -117,13 +117,23 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 /* ── Month ───────────────────────────────────────────────── */
 .month { background: var(--surface); }
-.month-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin-bottom: 0.75rem; }
-.month-title-row { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+/* Header: title | navigation pill (always centred, fixed) | pickers. Equal side columns keep the pill in the middle. */
+.month-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "title nav controls" "meta meta meta";
+  align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.75rem; }
+.month-title-row { grid-area: title; }
+.month-nav { grid-area: nav; justify-self: center; }
+.month-controls { grid-area: controls; justify-self: end; }
+.month-meta { grid-area: meta; }
+@media (max-width: 760px) {
+  .month-head { grid-template-columns: 1fr; grid-template-areas: "title" "nav" "controls" "meta"; }
+  .month-title-row, .month-controls { justify-self: center; }
+}
+.month-title-row { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; min-width: 0; }
 .month-title-row h2 { font-size: 1.75rem; }
 .cal-badge { font-size: 0.72rem; font-weight: 600; padding: 0.12rem 0.5rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent-c); align-self: center; }
 .month.cal-hebrew, .cal-badge.cal-hebrew { --accent-c: var(--hebrew); --accent-soft: var(--hebrew-soft); }
 .month.cal-gregory, .cal-badge.cal-gregory { --accent-c: var(--gregory); --accent-soft: var(--gregory-soft); }
-.month-controls { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.month-controls { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-end; }
 .month-controls select, .month-controls input { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 0.3rem 0.45rem; }
 .year-input { width: 5.2rem; }
 [dir="rtl"] .flip { display: inline-block; transform: scaleX(-1); }
@@ -137,7 +147,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .nav-arrow svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .nav-today { padding: 0 1.1rem; font-weight: 600; border-inline: 1px solid var(--line) !important; }
 .month-controls .text { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 0.3rem 0.75rem; font-weight: 600; }
-.month-meta { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.8rem; }
+.month-meta { margin: 0; color: var(--muted); font-size: 0.8rem; }
 
 .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-inline-start: 1px solid var(--line); }
 .weekday { text-align: end; font-size: 0.72rem; color: var(--muted); padding: 0.35rem 0.5rem; font-weight: 600; border-inline-end: 1px solid var(--line); border-bottom: 1px solid var(--line); }
