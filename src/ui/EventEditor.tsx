@@ -28,6 +28,7 @@ export function EventEditor(p: Props) {
   const [skip, setSkip] = useState<SkipPolicy>(ex?.recurrenceRules?.[0]?.skip ?? "forward");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const cal = getCalendar(date.calendar);
   const months = cal.monthsInYear(date.year);
@@ -80,7 +81,9 @@ export function EventEditor(p: Props) {
   }
 
   async function remove() {
-    if (!p.onDelete || !confirm(t.confirmDelete)) return;
+    if (!p.onDelete) return;
+    // In-dialog two-step confirmation (window.confirm is blocked in sandboxed frames).
+    if (!confirmingDelete) { setConfirmingDelete(true); return; }
     setBusy(true);
     try { await p.onDelete(); p.onClose(); } catch (err) { setError(`${t.errorPrefix} ${(err as Error).message}`); setBusy(false); }
   }
@@ -171,7 +174,7 @@ export function EventEditor(p: Props) {
         {error && <p className="error" role="alert">{error}</p>}
 
         <div className="actions">
-          {p.onDelete && <button type="button" className="danger" onClick={remove} disabled={busy}>{t.delete}</button>}
+          {p.onDelete && <button type="button" className={confirmingDelete ? "danger armed" : "danger"} onClick={remove} disabled={busy}>{confirmingDelete ? t.confirmDelete : t.delete}</button>}
           <span className="spacer" />
           <button type="button" onClick={p.onClose} disabled={busy}>{t.cancel}</button>
           <button type="submit" className="primary" disabled={busy || !title.trim()}>{busy ? t.saving : t.save}</button>

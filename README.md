@@ -45,7 +45,7 @@ npm start              # http://localhost:3000
 
 ## Use
 
-- **Choose the display:** the toggle at the top switches between *Hebrew · Gregorian* and
+- **Choose the display:** the ⇄ button at the top switches between *Hebrew · Gregorian* and
   *Gregorian · Hebrew*. The view stays on the same day, and the choice is remembered in this browser.
 - **See a day's events:** click a day. The list below the month shows that day's events in both calendars.
   *Today* jumps back to today and shows today's events.
@@ -57,8 +57,18 @@ npm start              # http://localhost:3000
   move forward (the default, which matches the Hebrew birthday custom), move back, or skip that year.
 - **Edit or delete:** click an event in the month or in the day list.
 - **Navigate:** use ‹ › to move between months, or pick a month or year.
-- **Settings (⚙):** interface language (עברית / English), the Apple Calendar subscription link,
-  storage status, and the edit token if the server requires one.
+- **Settings (⚙):** interface language (עברית / English), appearance (automatic, light or dark), the
+  Apple Calendar subscription link, storage status, and the edit token if the server requires one.
+
+## Standalone preview (no server)
+
+```bash
+npm run build:preview   # → dist/preview.html
+```
+
+This creates one self-contained HTML file that runs the same app entirely in the browser. Events are saved
+in that browser's localStorage, a few sample events are added on first visit, and there is no ICS feed.
+It's useful for trying the UI or sharing a demo. Open the file directly, or host it anywhere.
 
 ## Tests
 

@@ -9,6 +9,8 @@ import {
   type EventInput, type EventStoreDocument, type UCEvent,
 } from "@/core/events/schema";
 
+import { isPreview } from "./preview";
+
 export interface EventRepository {
   kind: "server" | "browser";
   storage: string;
@@ -87,6 +89,7 @@ export class BrowserRepository implements EventRepository {
 }
 
 export async function chooseRepository(): Promise<EventRepository> {
+  if (isPreview()) return new BrowserRepository(); // standalone preview page: no server
   try {
     const res = await fetch("/api/status", { cache: "no-store" });
     const s = (await res.json()) as { storage: string };

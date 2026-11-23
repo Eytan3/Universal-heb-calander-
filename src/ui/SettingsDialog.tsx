@@ -2,17 +2,21 @@
 import { useState } from "react";
 import type { Locale } from "@/core/calendars/types";
 import type { Strings } from "./i18n";
+import type { Theme } from "./theme";
+import { isPreview } from "./preview";
 import { getEditToken, setEditToken, type EventRepository } from "./repository";
 
 interface Props {
   t: Strings;
   locale: Locale;
   onLocale: (l: Locale) => void;
+  theme: Theme;
+  onTheme: (t: Theme) => void;
   repo: EventRepository | null;
   onClose: () => void;
 }
 
-export function SettingsDialog({ t, locale, onLocale, repo, onClose }: Props) {
+export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState(getEditToken());
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -36,24 +40,35 @@ export function SettingsDialog({ t, locale, onLocale, repo, onClose }: Props) {
         </section>
 
         <section className="settings-section">
+          <h3>{t.themeLabel}</h3>
+          <div className="segmented">
+            {(["system", "light", "dark"] as Theme[]).map((th) => (
+              <button type="button" key={th} className={th === theme ? "on neutral" : ""} aria-pressed={th === theme} onClick={() => onTheme(th)}>
+                {t.themes[th]}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="settings-section">
           <h3>{t.feed}</h3>
           {repo?.kind === "server" ? (
             <>
               <p className="muted">{t.feedHelp}</p>
               <div className="feed-row">
                 <code dir="ltr">{webcalUrl}</code>
-                <button type="button" onClick={() => { navigator.clipboard?.writeText(webcalUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+                <button type="button" onClick={() => { navigator.clipboard?.writeText(webcalUrl).then(() => setCopied(true), () => undefined); setTimeout(() => setCopied(false), 1500); }}>
                   {copied ? t.copied : t.copy}
                 </button>
               </div>
               <p className="muted small">{t.feedPublicNote} <a href={feedUrl}>calendar.ics</a></p>
             </>
-          ) : <p className="muted">{t.browserOnly}</p>}
+          ) : <p className="muted">{isPreview() ? t.previewNote : t.browserOnly}</p>}
         </section>
 
         <section className="settings-section">
           <h3>{t.storageLabel}</h3>
-          <p className="muted">{repo?.kind === "server" ? t.serverStorage(repo.storage) : t.browserOnly}</p>
+          <p className="muted">{repo?.kind === "server" ? t.serverStorage(repo.storage) : t.storageBrowser}</p>
         </section>
 
         {repo?.kind === "server" && (

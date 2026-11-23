@@ -10,6 +10,8 @@ import { EventEditor } from "./EventEditor";
 import { STRINGS } from "./i18n";
 import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
+import { isPreview } from "./preview";
+import { applyTheme, readTheme, type Theme } from "./theme";
 import { AuthRequiredError, chooseRepository, setEditToken, type EventRepository } from "./repository";
 
 type EditorState = { existing?: UCEvent; date: CalendarDate } | null;
@@ -35,6 +37,8 @@ export default function App() {
   const [tokenDraft, setTokenDraft] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Lazy init so the first effect never overwrites the saved choice (theme isn't in the SSR markup).
+  const [theme, setTheme] = useState<Theme>(() => (typeof window === "undefined" ? "system" : readTheme()));
   const [addCalendar, setAddCalendar] = useState<CalendarId>("hebrew");
   const t = STRINGS[locale];
 
@@ -57,6 +61,8 @@ export default function App() {
     document.documentElement.dir = locale === "he" ? "rtl" : "ltr";
     try { localStorage.setItem("universal-calendar:locale", locale); } catch { /* ignore */ }
   }, [locale]);
+
+  useEffect(() => applyTheme(theme), [theme]);
 
   const reload = useCallback(async () => {
     if (!repo) return;
@@ -115,20 +121,18 @@ export default function App() {
           <p className="tagline">{t.tagline}</p>
         </div>
         <div className="top-actions">
-          <div className="segmented mode" role="group" aria-label={t.modeLabel}>
-            {(["hebrew", "gregory"] as CalendarId[]).map((m) => (
-              <button type="button" key={m} className={m === primary ? `on cal-${m}` : ""} aria-pressed={m === primary} onClick={() => switchMode(m)}>
-                {t.modes[m]}
-              </button>
-            ))}
-          </div>
+          <button type="button" className={`mode-toggle cal-${primary}`} onClick={() => switchMode(primary === "hebrew" ? "gregory" : "hebrew")}
+            title={t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])} aria-label={`${t.modeLabel}: ${t.modes[primary]}. ${t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])}`}>
+            <span className="arrows" aria-hidden>⇄</span>
+            <span>{t.modes[primary]}</span>
+          </button>
           <button type="button" className="lang" onClick={() => setShowSettings(true)} aria-label={t.settings}>
             <span aria-hidden>⚙︎</span> {t.settings}
           </button>
         </div>
       </header>
 
-      {repo?.kind === "browser" && <p className="banner warn">{t.browserOnly}</p>}
+      {repo?.kind === "browser" && <p className="banner warn">{isPreview() ? t.previewNote : t.browserOnly}</p>}
       {loadError && <p className="banner error">{loadError}</p>}
       {needToken && (
         <form className="banner warn token" onSubmit={(e) => { e.preventDefault(); setEditToken(tokenDraft); setNeedToken(false); }}>
@@ -193,7 +197,7 @@ export default function App() {
         />
       )}
       {showSettings && (
-        <SettingsDialog t={t} locale={locale} onLocale={setLocale} repo={repo} onClose={() => setShowSettings(false)} />
+        <SettingsDialog t={t} locale={locale} onLocale={setLocale} theme={theme} onTheme={setTheme} repo={repo} onClose={() => setShowSettings(false)} />
       )}
     </main>
   );

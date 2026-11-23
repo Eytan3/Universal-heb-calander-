@@ -17,8 +17,15 @@
   --font: system-ui, -apple-system, "Segoe UI", "Noto Sans", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
   color-scheme: light;
 }
+/* Theme: data-theme="dark" | "light" on <html>; no attribute = follow the system. */
+:root[data-theme="dark"] {
+    --bg: #161614; --surface: #201f1c; --ink: #ecebe6; --muted: #a29f96; --line: #34322d; --soft: #2a2925;
+    --hebrew: #9fa8ff; --hebrew-soft: #2a2d4a; --gregory: #5ad1bf; --gregory-soft: #173733; --today: #ff8a50;
+    --warn-bg: #3a3020; --warn-line: #6b5627; --danger: #ff6b5e;
+    color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #161614; --surface: #201f1c; --ink: #ecebe6; --muted: #a29f96; --line: #34322d; --soft: #2a2925;
     --hebrew: #9fa8ff; --hebrew-soft: #2a2d4a; --gregory: #5ad1bf; --gregory-soft: #173733; --today: #ff8a50;
     --warn-bg: #3a3020; --warn-line: #6b5627; --danger: #ff6b5e;
@@ -81,7 +88,8 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 .chip { width: 100%; text-align: start; unicode-bidi: plaintext; border: 0; border-radius: 5px; padding: 0.1rem 0.35rem; font-size: 0.72rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip.cal-hebrew { background: var(--hebrew); color: #fff; }
 .chip.cal-gregory { background: var(--gregory); color: #fff; }
-@media (prefers-color-scheme: dark) { .chip.cal-hebrew, .chip.cal-gregory { color: #111; } }
+:root[data-theme="dark"] :is(.chip, .segmented button.on, .mode-toggle) { color: #111; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.chip, .segmented button.on, .mode-toggle) { color: #111; } }
 @media (max-width: 560px) { .cell { min-height: 4.2rem; padding: 0.25rem; } .cell-head { flex-direction: column; align-items: flex-start; gap: 0; } .secondary { font-size: 0.62rem; max-width: 100%; } }
 
 .lower { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1rem; margin-top: 1rem; }
@@ -142,3 +150,9 @@ button:disabled { opacity: 0.55; cursor: default; }
 .segmented.mode button { white-space: nowrap; }
 .month .cell { min-height: 6rem; }
 @media (max-width: 560px) { .top { flex-direction: column; align-items: stretch; } .top-actions { justify-content: space-between; } .month .cell { min-height: 4.2rem; } }
+
+.mode-toggle { display: inline-flex; align-items: center; gap: 0.45rem; border: 0; border-radius: 999px; padding: 0.4rem 1rem; font-weight: 600; color: #fff; white-space: nowrap; }
+.mode-toggle.cal-hebrew { background: var(--hebrew); }
+.mode-toggle.cal-gregory { background: var(--gregory); }
+.mode-toggle .arrows { font-size: 1.1rem; line-height: 1; }
+.actions .danger.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
