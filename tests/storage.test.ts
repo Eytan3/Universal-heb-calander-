@@ -8,7 +8,7 @@ const event = createEvent({ title: "x", start: { calendar: "hebrew", year: 5787,
 
 async function freshStorage(env: Record<string, string>) {
   vi.resetModules();
-  for (const k of ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_URL", "KV_REST_API_TOKEN", "VERCEL", "UC_DATA_FILE"]) delete process.env[k];
+  for (const k of Object.keys(process.env)) if (/REDIS|KV_|UPSTASH|^VERCEL$|^UC_DATA_FILE$/.test(k)) delete process.env[k];
   Object.assign(process.env, env);
   return import("@/server/storage");
 }
@@ -48,5 +48,25 @@ describe("storage backends", () => {
     await mutate((doc) => { doc.events.push(event); });
     expect(calls).toEqual(["GET", "SET"]);
     expect(JSON.parse(kv.get("universal-calendar:events:v1")!).events[0].uid).toBe("u1");
+  });
+});
+
+describe("Redis configuration detection", () => {
+  it("finds credentials under every naming scheme hosts use", async () => {
+    const { detectRedis } = await freshStorage({});
+    expect(detectRedis({ KV_REST_API_URL: "https://a.upstash.io", KV_REST_API_TOKEN: "t", KV_REST_API_READ_ONLY_TOKEN: "r" }))
+      .toMatchObject({ protocol: "rest", vars: ["KV_REST_API_URL", "KV_REST_API_TOKEN"] });
+    expect(detectRedis({ STORAGE_REST_API_URL: "https://a.upstash.io", STORAGE_REST_API_TOKEN: "t" }))
+      .toMatchObject({ protocol: "rest", vars: ["STORAGE_REST_API_URL", "STORAGE_REST_API_TOKEN"] });
+    expect(detectRedis({ REDIS_URL: "rediss://default:pw@host:6379" })).toMatchObject({ protocol: "redis", vars: ["REDIS_URL"] });
+    expect(detectRedis({ MYDB_REDIS_URL: "redis://host:6379" })).toMatchObject({ protocol: "redis", vars: ["MYDB_REDIS_URL"] });
+    expect(detectRedis({ DATABASE_URL: "postgres://x" })).toBeNull();
+    // REST preferred when both are present
+    expect(detectRedis({ REDIS_URL: "redis://h", KV_REST_API_URL: "https://a.upstash.io", KV_REST_API_TOKEN: "t" })?.protocol).toBe("rest");
+  });
+
+  it("selects the Redis-protocol store when only REDIS_URL is set", async () => {
+    const { getStore } = await freshStorage({ VERCEL: "1", REDIS_URL: "redis://localhost:1" });
+    expect(getStore().kind).toBe("redis");
   });
 });

@@ -3,8 +3,8 @@
  *
  * The whole store is one small JSON document (schema v1), read and written atomically.
  * Backends, chosen at runtime:
- *   - "redis": Upstash Redis over its REST API (works on Vercel; free tier). Selected when
- *              UPSTASH_REDIS_REST_URL/TOKEN or KV_REST_API_URL/TOKEN are set.
+ *   - "redis": Redis, either over Upstash's REST API or the standard Redis protocol (REDIS_URL).
+ *              Variable names are detected flexibly; see detectRedis().
  *   - "file":  a JSON file on local disk (default for `next dev` / `next start` / self-hosting).
  *   - "none":  on Vercel with no Redis configured — serverless file systems are not persistent,
  *              so the server refuses to pretend; the UI falls back to browser storage.
@@ -72,7 +72,63 @@ class NoStore implements DocumentStore {
 }
 
 export class StorageUnavailableError extends Error {
-  constructor() { super("Server storage is not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN."); }
+  constructor() { super("Server storage is not configured: connect a Redis database (REDIS_URL or Upstash REST variables)."); }
+}
+
+/** Standard Redis protocol (redis:// or rediss://), e.g. Vercel's "Redis" marketplace database (REDIS_URL). */
+class RedisUrlStore implements DocumentStore {
+  kind = "redis" as const;
+  private client: Promise<import("redis").RedisClientType> | null = null;
+  constructor(private url: string, private key: string) {}
+  private connect() {
+    if (!this.client) {
+      this.client = import("redis").then(async ({ createClient }) => {
+        const c = createClient({ url: this.url, socket: { connectTimeout: 8000 } }) as import("redis").RedisClientType;
+        c.on("error", (e) => console.error("redis client error", e));
+        await c.connect();
+        return c;
+      });
+      this.client.catch(() => { this.client = null; }); // retry on next request
+    }
+    return this.client;
+  }
+  async load() {
+    const raw = await (await this.connect()).get(this.key);
+    return raw ? parseDocument(JSON.parse(raw)) : emptyDocument();
+  }
+  async save(doc: EventStoreDocument) {
+    await (await this.connect()).set(this.key, JSON.stringify(doc));
+  }
+}
+
+export type RedisConfig =
+  | { protocol: "rest"; url: string; token: string; vars: string[] }
+  | { protocol: "redis"; url: string; vars: string[] };
+
+/**
+ * Find Redis credentials under any of the names hosting integrations use:
+ *  - REST (Upstash): UPSTASH_REDIS_REST_URL/TOKEN, KV_REST_API_URL/TOKEN, or any <PREFIX>_REST_API_URL/TOKEN
+ *    or <PREFIX>_REDIS_REST_URL/TOKEN pair (Vercel lets you choose a custom prefix);
+ *  - Redis protocol: REDIS_URL, KV_URL, or any <PREFIX>_REDIS_URL / <PREFIX>_URL holding a redis(s):// URL.
+ * REST is preferred when both exist. Only variable *names* are ever reported.
+ */
+export function detectRedis(env: Record<string, string | undefined> = process.env): RedisConfig | null {
+  const pairs: [string, string][] = [["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"], ["KV_REST_API_URL", "KV_REST_API_TOKEN"]];
+  for (const k of Object.keys(env).sort()) {
+    let m = /^(.+)_REST_API_URL$/.exec(k);
+    if (m) pairs.push([k, `${m[1]}_REST_API_TOKEN`]);
+    m = /^(.+)_REDIS_REST_URL$/.exec(k);
+    if (m) pairs.push([k, `${m[1]}_REDIS_REST_TOKEN`]);
+  }
+  for (const [u, t] of pairs) {
+    if (env[u] && env[t] && /^https:\/\//.test(env[u]!)) return { protocol: "rest", url: env[u]!, token: env[t]!, vars: [u, t] };
+  }
+  const urlNames = ["REDIS_URL", "KV_URL", ...Object.keys(env).sort().filter((k) => /(^|_)(REDIS_URL|URL)$/.test(k))];
+  for (const k of urlNames) {
+    const v = env[k];
+    if (v && /^rediss?:\/\//.test(v)) return { protocol: "redis", url: v, vars: [k] };
+  }
+  return null;
 }
 
 let cached: DocumentStore | null = null;
@@ -80,9 +136,10 @@ let cached: DocumentStore | null = null;
 export function getStore(): DocumentStore {
   if (cached) return cached;
   const env = process.env;
-  const url = env.UPSTASH_REDIS_REST_URL ?? env.KV_REST_API_URL;
-  const token = env.UPSTASH_REDIS_REST_TOKEN ?? env.KV_REST_API_TOKEN;
-  if (url && token) cached = new UpstashStore(url, token, env.UC_REDIS_KEY ?? "universal-calendar:events:v1");
+  const key = env.UC_REDIS_KEY ?? "universal-calendar:events:v1";
+  const redis = detectRedis(env);
+  if (redis?.protocol === "rest") cached = new UpstashStore(redis.url, redis.token, key);
+  else if (redis?.protocol === "redis") cached = new RedisUrlStore(redis.url, key);
   else if (env.VERCEL && !env.UC_DATA_FILE) cached = new NoStore();
   else cached = new FileStore(path.resolve(/*turbopackIgnore: true*/ env.UC_DATA_FILE ?? path.join(process.cwd(), "data", "events.json")));
   return cached;
