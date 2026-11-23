@@ -79,7 +79,7 @@ export function CalendarsPanel(p: Props) {
   const holidayFeed = `/holidays.ics?region=${p.holidays.region}&categories=${p.holidays.categories.join(",")}&lang=${p.locale}`;
 
   return (
-    <aside className="sidebar" aria-label={t.calendars}>
+    <aside className="sidebar" id="calendars-panel" aria-label={t.calendars}>
       <h2 className="side-title">{t.myCalendars}</h2>
       <ul className="cal-list">
         {doc.collections.map((c) => {

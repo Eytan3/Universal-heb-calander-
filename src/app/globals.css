@@ -75,6 +75,14 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* ── Layout: sidebar + main ─────────────────────────────── */
 .layout { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 .main-col { min-width: 0; }
+.layout.no-sidebar { grid-template-columns: minmax(0, 1fr); }
+.sidebar { animation: sidebar-in 160ms ease-out; }
+@keyframes sidebar-in { from { opacity: 0; transform: translateX(calc(var(--dir, 1) * -8px)); } to { opacity: 1; transform: none; } }
+[dir="rtl"] .sidebar { --dir: -1; }
+@media (prefers-reduced-motion: reduce) { .sidebar { animation: none; } }
+.sidebar-toggle { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.4rem 0.85rem; }
+.sidebar-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.sidebar-toggle.on { background: var(--soft); border-color: transparent; font-weight: 600; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   .sidebar { order: 2; }

@@ -20,6 +20,7 @@ import { AuthRequiredError, chooseRepository, setEditToken, type EventRepository
 type EditorState = { existing?: UCEvent; date: CalendarDate } | null;
 
 const MODE_KEY = "universal-calendar:mode";
+const SIDEBAR_KEY = "universal-calendar:sidebar";
 
 const ymOf = (calendar: CalendarId, day: EpochDay): YearMonth => {
   const d = getCalendar(calendar).fromEpochDay(day);
@@ -32,6 +33,8 @@ export default function App() {
   const [repo, setRepo] = useState<EventRepository | null>(null);
   const [doc, setDoc] = useState<EventStoreDocument>(() => emptyDocument());
   const [view, setView] = useState<ViewPrefs>(DEFAULT_VIEW);
+  /** The calendars panel is closed by default for a clean look; the choice is remembered. */
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   /** Display mode: the main calendar of the single month view; the other appears as secondary labels. */
   const [primary, setPrimary] = useState<CalendarId>("hebrew");
   const [ym, setYm] = useState<YearMonth | null>(null);
@@ -58,6 +61,7 @@ export default function App() {
     setAddCalendar(mode);
     setYm(ymOf(mode, d));
     setView(readViewPrefs());
+    try { setSidebarOpen(localStorage.getItem(SIDEBAR_KEY) === "open"); } catch { /* ignore */ }
     chooseRepository().then(setRepo);
   }, []);
 
@@ -145,6 +149,15 @@ export default function App() {
           <p className="tagline">{t.tagline}</p>
         </div>
         <div className="top-actions">
+          <button type="button" className={`sidebar-toggle${sidebarOpen ? " on" : ""}`} aria-expanded={sidebarOpen} aria-controls="calendars-panel"
+            title={t.calendars} onClick={() => {
+              const next = !sidebarOpen;
+              setSidebarOpen(next);
+              try { localStorage.setItem(SIDEBAR_KEY, next ? "open" : "closed"); } catch { /* ignore */ }
+            }}>
+            <svg viewBox="0 0 20 20" aria-hidden><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" /><path d="M7.5 3.5v13" /></svg>
+            <span>{t.calendars}</span>
+          </button>
           <button type="button" className={`mode-toggle cal-${primary}`} onClick={() => switchMode(primary === "hebrew" ? "gregory" : "hebrew")}
             title={t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])} aria-label={`${t.modeLabel}: ${t.modes[primary]}. ${t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])}`}>
             <span className="arrows" aria-hidden>⇄</span>
@@ -166,14 +179,14 @@ export default function App() {
         </form>
       )}
 
-      <div className="layout">
-      <CalendarsPanel t={t} locale={locale} doc={doc} hidden={hidden}
+      <div className={`layout${sidebarOpen ? "" : " no-sidebar"}`}>
+      {sidebarOpen && <CalendarsPanel t={t} locale={locale} doc={doc} hidden={hidden}
         onToggle={(id) => updateView({ ...view, hiddenCollections: hidden.has(id) ? view.hiddenCollections.filter((x) => x !== id) : [...view.hiddenCollections, id] })}
         holidays={view.holidays} onHolidays={(h) => updateView({ ...view, holidays: h })}
         serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()}
         onCreate={(name, color) => guarded(() => repo!.createCollection({ name, color }))}
         onUpdate={(id, name, color) => guarded(() => repo!.updateCollection(id, { name, color }))}
-        onDelete={(id) => guarded(() => repo!.removeCollection(id))} />
+        onDelete={(id) => guarded(() => repo!.removeCollection(id))} />}
       <div className="main-col">
       <MonthView key={primary} cal={mainCal} other={otherCal} ym={ym} onNavigate={setYm} locale={locale} t={t} today={today}
         selected={selected} occurrences={occurrences} events={eventsByUid} holidays={monthHolidays} colors={colors}
