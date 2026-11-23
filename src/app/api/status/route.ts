@@ -8,7 +8,6 @@ export function GET() {
     storage: getStore().kind,
     // Names only (never values), to help diagnose hosting configuration.
     storageVariables: detectRedis()?.vars ?? [],
-    redisLikeVariablesPresent: Object.keys(process.env).filter((k) => /REDIS|KV_|UPSTASH/.test(k)).sort(),
     editTokenRequired: Boolean(process.env.UC_EDIT_TOKEN),
     feedTokenRequired: Boolean(process.env.UC_FEED_TOKEN),
   });

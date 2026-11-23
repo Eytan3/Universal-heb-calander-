@@ -107,11 +107,17 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
   for (const ev of events.filter(isFixedStep)) {
     const cal = getCalendar(ev.start.calendar);
     const rule = ev.recurrenceRules![0];
-    const first = cal.toEpochDay(ev.start);
+    const original = cal.toEpochDay(ev.start);
+    const step = (rule.interval ?? 1) * (rule.frequency === "weekly" ? 7 : 1);
+    // With `from`, the repeating series starts at the first step on/after it; the original stays as its own event.
+    const fromDay = rule.from ? cal.toEpochDay(rule.from) : original;
+    const first = original + Math.ceil((fromDay - original) / step) * step;
+    const desc = `DESCRIPTION:${escapeText([`Rule: ${describeRule(ev, "en")}`, ev.description].filter(Boolean).join("\n"))}`;
+    if (first !== original) lines.push(...veventHead(ev, `${ev.uid}.origin@${domain}`, original), desc, "END:VEVENT");
     lines.push(
       ...veventHead(ev, `${ev.uid}.rule@${domain}`, first),
       `RRULE:FREQ=${rule.frequency.toUpperCase()};INTERVAL=${rule.interval ?? 1}`,
-      `DESCRIPTION:${escapeText([`Rule: ${describeRule(ev, "en")}`, ev.description].filter(Boolean).join("\n"))}`,
+      desc,
       "END:VEVENT",
     );
   }

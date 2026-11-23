@@ -1,6 +1,6 @@
 import { UID_PATTERN, validateCollectionInput } from "@/core/events/schema";
 import { changeCollection, removeCollection } from "@/core/events/store";
-import { checkEditToken, errorResponse, json } from "@/server/http";
+import { checkEditToken, errorResponse, json, readJson } from "@/server/http";
 import { mutate } from "@/server/storage";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (denied) return denied;
   const { id } = await params;
   if (!UID_PATTERN.test(id)) return json({ error: "bad id" }, 400);
-  const v = validateCollectionInput(await req.json().catch(() => null));
+  const v = validateCollectionInput(await readJson(req));
   if (!v.ok) return json({ errors: v.errors }, 400);
   try {
     return json(await mutate((doc) => changeCollection(doc, id, v.value)));

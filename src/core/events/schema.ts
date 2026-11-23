@@ -50,6 +50,14 @@ export interface RecurrenceRule {
   interval?: number;
   /** RFC 7529 SKIP for dates missing in a month/year (monthly and yearly only). Default "omit" (RFC 7529 default). */
   skip?: SkipPolicy;
+  /**
+   * Repeats begin on this date (in the rule's calendar). The series stays anchored to `start`
+   * (e.g. a birth date keeps its meaning), but no repeats are generated between `start` and
+   * `from` — so an old event made recurring today does not fill the past. The original
+   * occurrence on `start` itself is kept. Absent = repeats from `start`.
+   * (Departure from JSCalendar, which has no such field; see ARCHITECTURE.md.)
+   */
+  from?: CalendarDate;
 }
 
 export interface UCEvent {
@@ -128,10 +136,19 @@ export function validateEventInput(raw: unknown): ValidationResult<EventInput> {
       if (!Number.isInteger(interval) || interval < 1 || interval > 1000) errors.push("interval must be 1–1000");
       const skip = (r.skip ?? "omit") as SkipPolicy;
       if (!SKIPS.includes(skip)) errors.push("skip must be omit, backward or forward");
+      let from: CalendarDate | undefined;
+      if (r.from !== undefined && r.from !== null && start) {
+        const f = r.from as Record<string, unknown>;
+        const cand = { year: Number(f.year), monthCode: String(f.monthCode), day: Number(f.day) };
+        const cal = getCalendar(start.calendar);
+        if (f.calendar !== start.calendar || !cal.isValid(cand)) errors.push("recurrence 'from' must be a valid date in the event's calendar");
+        else if (cal.toEpochDay(cand) > cal.toEpochDay(start)) from = { calendar: start.calendar, ...cand }; // ≤ start is meaningless: drop it
+      }
       if (start && errors.length === 0)
         recurrenceRules = [{
           "@type": "RecurrenceRule", frequency, rscale: start.calendar, interval,
           ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}),
+          ...(from ? { from } : {}),
         }];
     }
   }

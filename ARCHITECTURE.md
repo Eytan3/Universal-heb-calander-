@@ -161,6 +161,7 @@ later is a one-file change.
 | `recurrenceRules[0].frequency` | `daily`, `weekly`, `monthly` or `yearly` | See *Recurrence semantics*. |
 | `recurrenceRules[0].rscale` | calendar id | The calendar the rule is evaluated in. Must equal `start.calendar`. |
 | `recurrenceRules[0].interval` | int 1–1000 | Every N units (months and years counted in the event's calendar). |
+| `recurrenceRules[0].from` | `CalendarDate`? | Repeats begin on this date (in the rule's calendar). The series stays anchored to `start`, and the original occurrence is kept. Used so that an old event made recurring does not fill the past. Departure from JSCalendar (an RRULE equivalent would split the series). |
 | `recurrenceRules[0].skip` | `omit`, `backward` or `forward` | RFC 7529 handling of dates missing in a month/year (monthly and yearly only). Absent means `omit` (the RFC default). |
 | `created`, `updated` | RFC 3339 UTC | Server-managed. |
 | `sequence` | int | Incremented on every edit. Exported as iCalendar `SEQUENCE`. |

@@ -58,6 +58,9 @@ npm start              # http://localhost:3000
 - **Add an event:** press *+ New event* under the month, or double-click a day. The editor opens in the
   current display's main calendar. You can switch it to the other calendar; the date is re-expressed as
   the same day.
+- **Old events:** if the event's date is in the past and you set it to repeat, repeats start **from
+  today** by default (the past isn't filled in; the original date is kept). Choose *From the event's date*
+  to include past years.
 - **Repeat:** choose *Does not repeat*, *Daily*, *Weekly*, *Monthly* or *Yearly*, and "every N". Monthly
   and yearly follow the event's calendar. If the date can be missing (the 30th in a 29-day Hebrew month,
   the 31st, Adar I, 29 February), the editor asks what to do: move forward (default), move back, or skip.
@@ -117,6 +120,16 @@ Other → Add Subscribed Calendar**.
 | Vercel **without** Redis | the browser's localStorage only | The app shows a warning. The ICS feed will be empty, because the server can't see browser data. |
 
 All variables are listed in [`.env.example`](./.env.example).
+
+## Security notes
+
+- With no tokens set, **anyone who knows the address can read and change the calendar**. For a public
+  deployment set `UC_EDIT_TOKEN` (required to read *and* write events through the API; the UI asks for it
+  once per browser) and `UC_FEED_TOKEN` (required by the `.ics` feeds).
+- Limits: 5,000 events, 50 calendars, 64 KB per request.
+- Security headers on every response: no framing (clickjacking), `nosniff`, `no-referrer`, restricted
+  permissions.
+- Keep a backup: *Settings → Export → .json* saves everything, including Hebrew dates and rules.
 
 ## Deploy: GitHub and Vercel
 

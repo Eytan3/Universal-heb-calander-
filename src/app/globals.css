@@ -85,7 +85,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .sidebar-toggle.on { background: var(--soft); border-color: transparent; font-weight: 600; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
-  .sidebar { order: 2; }
+  .sidebar { order: 0; } /* opened from the top bar → show it right below, not past the fold */
 }
 
 /* ── Sidebar (calendar list) ─────────────────────────────── */

@@ -112,3 +112,55 @@ describe("descriptions and ICS", () => {
     expect(new Set(m.map((e) => e.uid)).size).toBe(m.length);
   });
 });
+
+describe("performance regressions", () => {
+  it("a Hebrew monthly rule that began ~2000 years ago expands a month quickly", () => {
+    const e = ev(H(3762, "M01", 30), "monthly", 1, "forward");
+    const t0 = gregorian.toEpochDay(G(2026, "M11", 23));
+    const s = performance.now();
+    for (let i = 0; i < 20; i++) expect(expandEvent(e, { start: t0 + i * 30, end: t0 + i * 30 + 32 }).length).toBeGreaterThan(0);
+    expect((performance.now() - s) / 20).toBeLessThan(25); // was ≈1100 ms per render before the fix
+  });
+});
+
+describe("repeats that start from today for an old event (rule.from)", () => {
+  const today = gregorian.toEpochDay(G(2026, "M11", 23));
+  const fromToday = (start: CalendarDate, frequency: Frequency) => {
+    const v = validateEventInput({ title: "old", start, recurrenceRules: [{ frequency, skip: "forward", from: getCal(start).fromEpochDay(today) }] });
+    if (!v.ok) throw new Error(v.errors.join(", "));
+    return createEvent(v.value, "old");
+  };
+  const getCal = (d: CalendarDate) => (d.calendar === "hebrew" ? hebrew : gregorian);
+
+  it("an old Hebrew birthday keeps its original day but no repeats in the past", () => {
+    const e = fromToday(H(5750, "M03", 15), "yearly");
+    const occ = expandEvent(e, { start: hebrew.toEpochDay(H(5750, "M01", 1)), end: today + 800 });
+    expect(occ[0].native).toEqual(H(5750, "M03", 15)); // the original event itself
+    expect(occ.slice(1).every((o) => o.epochDay >= today)).toBe(true);
+    expect(occ.slice(1).map((o) => o.native.year)).toEqual([5787, 5788, 5789]);
+  });
+
+  it("weekly from today: original kept, series continues from today on the same weekday", () => {
+    const e = fromToday(G(2020, "M01", 6), "weekly"); // a Monday
+    const occ = expandEvent(e, { start: gregorian.toEpochDay(G(2019, "M01", 1)), end: today + 15 });
+    expect(occ.map((o) => o.epochDay)).toEqual([gregorian.toEpochDay(G(2020, "M01", 6)), today, today + 7, today + 14]);
+  });
+
+  it("validation drops a 'from' that is not after the start", () => {
+    const v = validateEventInput({ title: "x", start: G(2026, "M11", 23), recurrenceRules: [{ frequency: "daily", from: G(2026, "M11", 1) }] });
+    expect(v.ok && v.value.recurrenceRules![0].from).toBeUndefined();
+    const bad = validateEventInput({ title: "x", start: G(2026, "M11", 23), recurrenceRules: [{ frequency: "daily", from: H(5787, "M03", 20) }] });
+    expect(bad.ok).toBe(false);
+  });
+
+  it("ICS: weekly-from-today exports the original plus an RRULE starting today", () => {
+    const e = fromToday(G(2020, "M01", 6), "weekly");
+    const comp = new ICAL.Component(ICAL.parse(buildIcs([e], { range: { start: today - 400, end: today + 400 } })));
+    const evs = comp.getAllSubcomponents("vevent").map((v) => new ICAL.Event(v));
+    expect(evs.map((x) => [x.uid.split("@")[0], x.startDate.toString()])).toEqual([["old.origin", "2020-01-06"], ["old.rule", "2026-11-23"]]);
+  });
+
+  it("describes the start of repeats", () => {
+    expect(describeRule(fromToday(H(5750, "M03", 15), "yearly"), "he")).toContain("החל מ־");
+  });
+});

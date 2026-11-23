@@ -4,6 +4,7 @@
  * month structure (its first day, its length) — never from Gregorian boundaries.
  * Each cell is an absolute EpochDay, so events and selection line up across views.
  */
+import { YearInput } from "./YearInput";
 import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/calendars/types";
 import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
@@ -141,16 +142,13 @@ export function MonthView(p: Props) {
               <option key={m.monthCode} value={m.monthCode}>{cal.monthName({ year: ym.year, monthCode: m.monthCode }, locale)}</option>
             ))}
           </select>
-          <input
-            aria-label={t.year}
+          <YearInput
+            ariaLabel={t.year}
             className="year-input"
-            type="number"
+            value={ym.year}
             min={cal.minYear}
             max={cal.maxYear}
-            value={ym.year}
-            onChange={(e) => {
-              const y = Number(e.target.value);
-              if (!Number.isInteger(y) || y < cal.minYear || y > cal.maxYear) return;
+            onCommit={(y) => {
               const code = cal.daysInMonth(y, ym.monthCode) === null
                 ? cal.substituteMissingMonth(y, ym.monthCode, "forward") ?? cal.monthsInYear(y)[0].monthCode
                 : ym.monthCode; // e.g. Adar I → Adar in a common Hebrew year

@@ -1,4 +1,5 @@
 "use client";
+import { YearInput } from "./YearInput";
 import { useMemo, useState } from "react";
 import { CALENDAR_IDS, getCalendar } from "@/core/calendars/registry";
 import type { CalendarDate, CalendarId, Locale, SkipPolicy } from "@/core/calendars/types";
@@ -31,6 +32,11 @@ export function EventEditor(p: Props) {
   // "none" = one-time. New events default to yearly (birthdays, anniversaries).
   const [frequency, setFrequency] = useState<Frequency | "none">(ex ? exRule?.frequency ?? "none" : "yearly");
   const [interval, setInterval_] = useState<number>(exRule?.interval ?? 1);
+  /**
+   * Where repeats begin for an event dated in the past: "today" (default — the past is not
+   * filled with repeats), "start" (from the original date), or "keep" (an existing rule's date).
+   */
+  const [fromMode, setFromMode] = useState<"today" | "start" | "keep">(exRule ? (exRule.from ? "keep" : "start") : "today");
   const [skip, setSkip] = useState<SkipPolicy>(ex?.recurrenceRules?.[0]?.skip ?? "forward");
   const [collectionId, setCollectionId] = useState(ex?.collectionId ?? p.defaultCollectionId);
   const [busy, setBusy] = useState(false);
@@ -55,13 +61,21 @@ export function EventEditor(p: Props) {
     setDate(next);
   }
 
+  // Repeats-from: only meaningful when the event's own date is already in the past.
+  const isPast = cal.toEpochDay(date) < p.today;
+  const keptFrom = exRule?.from ? cal.fromEpochDay(getCalendar(exRule.from.calendar).toEpochDay(exRule.from)) : undefined; // re-expressed if the calendar was switched
+  const fromDate = frequency === "none" || !isPast ? undefined
+    : fromMode === "today" ? cal.fromEpochDay(p.today)
+    : fromMode === "keep" ? keptFrom
+    : undefined;
+
   const input: EventInput = {
     title,
     description: description || undefined,
     start: date,
     collectionId,
     recurrenceRules: frequency !== "none"
-      ? [{ "@type": "RecurrenceRule", frequency, interval, rscale: date.calendar, ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}) }]
+      ? [{ "@type": "RecurrenceRule", frequency, interval, rscale: date.calendar, ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}), ...(fromDate ? { from: fromDate } : {}) }]
       : undefined,
   };
   const existingOrDraftRule = () => {
@@ -153,8 +167,7 @@ export function EventEditor(p: Props) {
           </label>
           <label className="field">
             <span>{t.year}</span>
-            <input type="number" value={date.year} min={cal.minYear} max={cal.maxYear}
-              onChange={(e) => { const y = Number(e.target.value); if (Number.isInteger(y) && y >= cal.minYear && y <= cal.maxYear) setPart({ year: y }); }} />
+            <YearInput value={date.year} min={cal.minYear} max={cal.maxYear} ariaLabel={t.year} onCommit={(y) => setPart({ year: y })} />
           </label>
         </div>
         <p className="hint" dir="auto">{cal.formatDate(date, locale)}</p>
@@ -178,6 +191,20 @@ export function EventEditor(p: Props) {
             </label>
           )}
         </div>
+        {frequency !== "none" && isPast && (
+          <fieldset className="field">
+            <legend>{t.repeatsFrom}</legend>
+            <div className="segmented">
+              <button type="button" className={fromMode === "today" ? "on neutral" : ""} aria-pressed={fromMode === "today"} onClick={() => setFromMode("today")}>{t.fromToday}</button>
+              {keptFrom && (
+                <button type="button" className={fromMode === "keep" ? "on neutral" : ""} aria-pressed={fromMode === "keep"} onClick={() => setFromMode("keep")}>
+                  {cal.formatDate(keptFrom, locale)}
+                </button>
+              )}
+              <button type="button" className={fromMode === "start" ? "on neutral" : ""} aria-pressed={fromMode === "start"} onClick={() => setFromMode("start")}>{t.fromStart}</button>
+            </div>
+          </fieldset>
+        )}
         {frequency !== "none" && existingOrDraftRule()}
 
         {missing && (

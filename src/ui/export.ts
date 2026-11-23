@@ -18,7 +18,11 @@ function download(filename: string, mime: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-const slug = (s: string) => s.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "calendar";
+/** ASCII-only file names: some browsers and systems mangle non-Latin download names. */
+const slug = (s: string) => {
+  const ascii = s.normalize("NFKD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+  return ascii ? `universal-calendar-${ascii}`.replace(/^universal-calendar-universal-calendar/, "universal-calendar") : "universal-calendar";
+};
 const stamp = () => new Date().toISOString().slice(0, 10);
 
 export function exportIcs(events: UCEvent[], name: string) {

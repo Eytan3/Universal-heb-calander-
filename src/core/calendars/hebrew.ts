@@ -25,6 +25,8 @@ const BASE_CODE_TO_HEBCAL: Record<string, number> = {
 };
 
 const isLeap = (year: number) => HDate.isLeapYear(year);
+const COMMON_CODES = ALL_CODES.filter((c) => c !== "M05L");
+const codesOf = (year: number) => (isLeap(year) ? ALL_CODES : COMMON_CODES);
 
 /** Hebcal month number for a month code in a given year, or null if that month does not exist that year. */
 function toHebcalMonth(year: number, code: string): number | null {
@@ -92,13 +94,14 @@ export const hebrew: CalendarAdapter = {
   },
 
   addMonths(ym: YearMonth, delta: number): YearMonth {
+    // Uses only the leap-year test per year (cheap), not full month tables, so large deltas stay fast.
     let { year } = ym;
-    let list = this.monthsInYear(year).map((m) => m.monthCode);
+    let list = codesOf(year);
     let idx = list.indexOf(ym.monthCode);
     if (idx < 0) idx = list.indexOf("M06"); // a leap month viewed in a common year → Adar
     idx += delta;
-    while (idx >= list.length) { idx -= list.length; year += 1; list = this.monthsInYear(year).map((m) => m.monthCode); }
-    while (idx < 0) { year -= 1; list = this.monthsInYear(year).map((m) => m.monthCode); idx += list.length; }
+    while (idx >= list.length) { idx -= list.length; year += 1; list = codesOf(year); }
+    while (idx < 0) { year -= 1; list = codesOf(year); idx += list.length; }
     return { year, monthCode: list[idx] };
   },
 

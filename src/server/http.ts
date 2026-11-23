@@ -29,6 +29,15 @@ export function checkFeedToken(url: URL): boolean {
   return !expected || safeEqual(url.searchParams.get("token") ?? "", expected);
 }
 
+/** Parse a JSON body of at most 64 KB; anything larger or malformed yields null (→ 400 from validation). */
+export async function readJson(req: Request, maxBytes = 64 * 1024): Promise<unknown> {
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (declared > maxBytes) return null;
+  const text = await req.text().catch(() => "");
+  if (text.length > maxBytes) return null;
+  try { return JSON.parse(text); } catch { return null; }
+}
+
 export function errorResponse(e: unknown): Response {
   if (e instanceof StorageUnavailableError) return json({ error: e.message, storage: "none" }, 503);
   if (e instanceof StoreError) return json({ error: e.message }, e.status);

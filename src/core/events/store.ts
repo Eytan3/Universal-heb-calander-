@@ -7,6 +7,10 @@ import {
   type CollectionInput, type EventInput, type EventStoreDocument, type UCEvent,
 } from "./schema";
 
+/** Hard caps so a public deployment cannot be filled up (storage cost / abuse). */
+export const MAX_EVENTS = 5000;
+export const MAX_COLLECTIONS = 50;
+
 export class StoreError extends Error {
   constructor(message: string, public status: 400 | 404 | 409) { super(message); }
 }
@@ -18,6 +22,7 @@ function collectionFor(doc: EventStoreDocument, requested?: string): string {
 }
 
 export function addEvent(doc: EventStoreDocument, input: EventInput, uid: string, now = new Date()): UCEvent {
+  if (doc.events.length >= MAX_EVENTS) throw new StoreError(`limit of ${MAX_EVENTS} events reached`, 409);
   const e = createEvent({ ...input, collectionId: collectionFor(doc, input.collectionId) }, uid, now);
   doc.events.push(e);
   return e;
@@ -38,6 +43,7 @@ export function removeEvent(doc: EventStoreDocument, uid: string): void {
 }
 
 export function addCollection(doc: EventStoreDocument, input: CollectionInput, id: string, now = new Date()) {
+  if (doc.collections.length >= MAX_COLLECTIONS) throw new StoreError(`limit of ${MAX_COLLECTIONS} calendars reached`, 409);
   const c = { id, name: input.name, color: input.color, created: now.toISOString() };
   doc.collections.push(c);
   return c;

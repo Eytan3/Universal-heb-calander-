@@ -75,9 +75,19 @@ export default function App() {
 
   useEffect(() => applyTheme(theme), [theme]);
 
+  // Keep "today" correct when the tab stays open past midnight.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const d = todayEpochDay();
+      setToday((prev) => (prev !== null && prev !== d ? d : prev));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const reload = useCallback(async () => {
     if (!repo) return;
-    try { setDoc(await repo.load()); setLoadError(null); } catch (e) { setLoadError((e as Error).message); }
+    try { setDoc(await repo.load()); setLoadError(null); setNeedToken(false); }
+    catch (e) { if (e instanceof AuthRequiredError) setNeedToken(true); else setLoadError((e as Error).message); }
   }, [repo]);
   useEffect(() => { reload(); }, [reload]);
 
@@ -172,7 +182,7 @@ export default function App() {
       {repo?.kind === "browser" && <p className="banner warn">{isPreview() ? t.previewNote : t.browserOnly}</p>}
       {loadError && <p className="banner error">{loadError}</p>}
       {needToken && (
-        <form className="banner warn token" onSubmit={(e) => { e.preventDefault(); setEditToken(tokenDraft); setNeedToken(false); }}>
+        <form className="banner warn token" onSubmit={(e) => { e.preventDefault(); setEditToken(tokenDraft); setNeedToken(false); reload(); }}>
           <span>{t.tokenNeeded}</span>
           <input type="password" value={tokenDraft} onChange={(e) => setTokenDraft(e.target.value)} aria-label="token" />
           <button type="submit">{t.tokenSave}</button>
@@ -256,7 +266,7 @@ export default function App() {
         />
       )}
       {showSettings && (
-        <SettingsDialog t={t} locale={locale} onLocale={setLocale} theme={theme} onTheme={setTheme} repo={repo} onClose={() => setShowSettings(false)} />
+        <SettingsDialog t={t} locale={locale} onLocale={setLocale} theme={theme} onTheme={setTheme} repo={repo} doc={doc} onClose={() => setShowSettings(false)} />
       )}
     </main>
   );

@@ -69,8 +69,20 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
       : [];
   }
 
-  if (rule.frequency === "daily" || rule.frequency === "weekly") return expandFixedStep(event, range);
-  if (rule.frequency === "monthly") return expandMonthly(event, range);
+  const all = rule.frequency === "daily" || rule.frequency === "weekly" ? expandFixedStep(event, range)
+    : rule.frequency === "monthly" ? expandMonthly(event, range)
+    : expandYearly(event, range);
+  if (!rule.from) return all;
+  // Repeats begin at `from`; the original occurrence on `start` is kept.
+  const fromDay = cal.toEpochDay(rule.from);
+  const startDay = cal.toEpochDay(start);
+  return all.filter((o) => o.epochDay >= fromDay || o.epochDay === startDay);
+}
+
+function expandYearly(event: UCEvent, range: Range): Occurrence[] {
+  const cal = getCalendar(event.start.calendar);
+  const rule = event.recurrenceRules![0];
+  const { start } = event;
 
   const interval = rule.interval ?? 1;
   const skip = rule.skip ?? "omit";
@@ -127,8 +139,9 @@ function expandMonthly(event: UCEvent, range: Range): Occurrence[] {
   let k = Math.max(0, Math.floor((range.start - firstDay) / 31) - 2);
   k -= k % interval;
   const out: Occurrence[] = [];
-  for (; out.length < MAX_OCCURRENCES; k += interval) {
-    const ym = cal.addMonths(startYm, k);
+  // Step forward incrementally from the first candidate month (one jump, then small steps).
+  let ym = cal.addMonths(startYm, k);
+  for (; out.length < MAX_OCCURRENCES; k += interval, ym = cal.addMonths(ym, interval)) {
     if (ym.year > cal.maxYear) break;
     const monthStart = cal.toEpochDay({ ...ym, day: 1 });
     if (monthStart >= range.end) break;

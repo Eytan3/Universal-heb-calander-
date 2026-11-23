@@ -5,6 +5,8 @@ import type { Strings } from "./i18n";
 import type { Theme } from "./theme";
 import { isPreview } from "./preview";
 import { getEditToken, setEditToken, type EventRepository } from "./repository";
+import type { EventStoreDocument } from "@/core/events/schema";
+import { exportIcs, exportJson } from "./export";
 
 interface Props {
   t: Strings;
@@ -13,10 +15,12 @@ interface Props {
   theme: Theme;
   onTheme: (t: Theme) => void;
   repo: EventRepository | null;
+  /** The user's own events and calendars (for export; never includes built-in holidays). */
+  doc: EventStoreDocument;
   onClose: () => void;
 }
 
-export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, onClose }: Props) {
+export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState(getEditToken());
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -64,6 +68,16 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, onCl
               <p className="muted small">{t.feedPublicNote} <a href={feedUrl}>calendar.ics</a></p>
             </>
           ) : <p className="muted">{isPreview() ? t.previewNote : t.browserOnly}</p>}
+        </section>
+
+        <section className="settings-section">
+          <h3>{t.exportTitle}</h3>
+          <p className="muted small">{t.exportHelp(doc.events.length)}</p>
+          <div className="feed-row">
+            <button type="button" onClick={() => exportIcs(doc.events, t.appName)}>{t.exportIcs}</button>
+            <button type="button" onClick={() => exportJson(doc, doc.collections, t.appName)}>{t.exportJson}</button>
+          </div>
+          {isPreview() && <p className="muted small">{t.exportPreviewNote}</p>}
         </section>
 
         <section className="settings-section">
