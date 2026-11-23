@@ -14,6 +14,7 @@
  */
 import { getCalendar, gregorian } from "../calendars/registry";
 import type { EpochDay } from "../time/epochDay";
+import { holidayInfo, holidayText } from "../holidays/info";
 import { describeRule } from "../events/describe";
 import { expandAll, type Range } from "../events/expand";
 import type { UCEvent } from "../events/schema";
@@ -183,8 +184,8 @@ export function buildHolidaysIcs(
       "DTSTAMP:20260101T000000Z",
       `DTSTART;VALUE=DATE:${icsDate(o.epochDay)}`,
       `DTEND;VALUE=DATE:${icsDate(o.epochDay + 1)}`,
-      `SUMMARY:${escapeText(opts.locale === "he" ? o.he : o.en)}`,
-      `DESCRIPTION:${escapeText(opts.locale === "he" ? o.en : o.he)}`,
+      `SUMMARY:${escapeText(`${holidayInfo(o.id)?.emoji ? `${holidayInfo(o.id)!.emoji} ` : ""}${opts.locale === "he" ? o.he : o.en}`)}`,
+      `DESCRIPTION:${escapeText([holidayText(o.id, opts.locale), opts.locale === "he" ? o.en : o.he].filter(Boolean).join("\n"))}`,
       "TRANSP:TRANSPARENT",
       "CATEGORIES:Holiday",
       "END:VEVENT",

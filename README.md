@@ -72,6 +72,8 @@ npm start              # http://localhost:3000
 - **Calendars panel (side):** tick a calendar to show or hide it; **⋯** renames it, changes its colour,
   copies its Apple Calendar link, exports it (`.ics` / `.json`) or deletes it (with its events, after a
   second click). **+ New calendar** adds one. *Export all my events* never includes built-in holidays.
+- **Holiday explanations:** each holiday has an icon in the month view; selecting a day shows a card
+  with a short explanation (Hebrew/English) and a *Read more* link. The holidays feed carries both too.
 - **Holidays:** under *Built-in*, untick *Jewish holidays* for a clean calendar; **⋯** chooses Israel or
   diaspora and which categories to show, and copies a holidays-only Apple Calendar link.
 - **Settings (⚙):** interface language (עברית / English), appearance (automatic, light or dark), the

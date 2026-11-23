@@ -80,7 +80,8 @@ button:disabled { opacity: 0.45; cursor: default; }
 .mode-toggle { font-weight: 700; }
 .mode-toggle.cal-hebrew { color: var(--hebrew); }
 .mode-toggle.cal-gregory { color: var(--gregory); }
-.mode-toggle .arrows { font-size: 1.05rem; line-height: 1; }
+.mode-toggle .arrows { font-size: 1.05rem; line-height: 1; opacity: 0.85; }
+.mode-toggle .other { opacity: 0.55; font-weight: 600; } /* the secondary calendar */
 
 /* ── Top bar (sticky glass) ─────────────────────────────── */
 .top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 1rem;
@@ -322,3 +323,16 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
 .action-btn.destructive { color: var(--danger); }
 .action-btn.cancel { background: var(--group); border-radius: 16px; font-weight: 700; box-shadow: 0 0 0 0.5px var(--glass-line), 0 20px 50px rgb(0 0 0 / 0.2); }
 @media (min-width: 601px) { .action-sheet-backdrop { place-items: center; } }
+
+/* ── Holiday cards in the day list (icon + explanation) ── */
+.holiday-cards { list-style: none; margin: 0 0 0.7rem; padding: 0; background: var(--grouped); border-radius: var(--radius); overflow: hidden; }
+.holiday-card { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.8rem 0.95rem; }
+.holiday-card + .holiday-card { border-top: 0.5px solid var(--line); }
+.holiday-icon { flex: none; width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem;
+  background: color-mix(in srgb, var(--holiday) 14%, var(--bg)); }
+.holiday-body { min-width: 0; }
+.holiday-body strong { display: flex; align-items: center; gap: 0.45rem; color: var(--holiday); font-size: 1rem; }
+.holiday-body p { margin: 0.2rem 0 0.25rem; color: var(--ink); font-size: 0.9rem; line-height: 1.45; opacity: 0.85; }
+.holiday-body a { font-size: 0.85rem; font-weight: 600; text-decoration: none; color: var(--accent); }
+.yomtov-badge { font-size: 0.68rem; font-weight: 700; color: var(--holiday); border: 1px solid color-mix(in srgb, var(--holiday) 45%, transparent); border-radius: 999px; padding: 0 0.4rem; }
+.h-emoji { font-size: 0.95em; }

@@ -6,6 +6,7 @@ import { byDay, expandAll, expandEvent, type Occurrence } from "@/core/events/ex
 import { describeRule } from "@/core/events/describe";
 import { emptyDocument, type EventInput, type EventStoreDocument, type UCEvent } from "@/core/events/schema";
 import { jewishHolidays, type HolidayOccurrence } from "@/core/holidays/registry";
+import { holidayInfo, holidayLink } from "@/core/holidays/info";
 import { CalendarsPanel, displayName } from "./CalendarsPanel";
 import { readViewPrefs, saveViewPrefs, DEFAULT_VIEW, type ViewPrefs } from "./viewPrefs";
 import { todayEpochDay, type EpochDay } from "@/core/time/epochDay";
@@ -179,8 +180,9 @@ export default function App() {
           </button>
           <button type="button" className={`glass-btn mode-toggle cal-${primary}`} onClick={() => switchMode(primary === "hebrew" ? "gregory" : "hebrew")}
             title={t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])} aria-label={`${t.modeLabel}: ${t.modes[primary]}. ${t.modeSwitchTo(t.modes[primary === "hebrew" ? "gregory" : "hebrew"])}`}>
+            <span>{t.calShort[primary]}</span>
             <span className="arrows" aria-hidden>⇄</span>
-            <span>{t.modes[primary]}</span>
+            <span className="other">{t.calShort[primary === "hebrew" ? "gregory" : "hebrew"]}</span>
           </button>
           <button type="button" className="glass-btn icon-only" onClick={() => setShowSettings(true)} aria-label={t.settings} title={t.settings}>
             <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
@@ -229,10 +231,21 @@ export default function App() {
               </div>
             </header>
             {dayHolidays.length > 0 && (
-              <ul className="day-holidays">
-                {dayHolidays.map((h) => (
-                  <li key={h.id} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto">{locale === "he" ? h.he : h.en}</li>
-                ))}
+              <ul className="holiday-cards">
+                {dayHolidays.map((h) => {
+                  const info = holidayInfo(h.id);
+                  const link = holidayLink(h.id, locale);
+                  return (
+                    <li key={h.id} className={`holiday-card hcat-${h.category}`}>
+                      <span className="holiday-icon" aria-hidden>{info?.emoji ?? "✡"}</span>
+                      <div className="holiday-body">
+                        <strong dir="auto">{locale === "he" ? h.he : h.en}{h.yomTov && <span className="yomtov-badge">{t.yomTov}</span>}</strong>
+                        {info && <p dir="auto">{info[locale]}</p>}
+                        {link && <a href={link} target="_blank" rel="noopener noreferrer">{t.readMore}</a>}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {dayEvents.length === 0 ? (dayHolidays.length === 0 && <p className="muted">{t.noEventsDay}</p>) : (

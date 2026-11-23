@@ -9,6 +9,7 @@ import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/ca
 import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
 import type { HolidayOccurrence } from "@/core/holidays/types";
+import { holidayInfo, holidayText } from "@/core/holidays/info";
 import { describeRule } from "@/core/events/describe";
 import { weekdayOf, type EpochDay } from "@/core/time/epochDay";
 import type { Strings } from "./i18n";
@@ -86,8 +87,9 @@ export function MonthView(p: Props) {
         {hol.length > 0 && (
           <ul className="holidays">
             {hol.map((h) => (
-              <li key={h.id + h.epochDay} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto" title={locale === "he" ? h.he : h.en}>
-                {locale === "he" ? h.he : h.en}
+              <li key={h.id + h.epochDay} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto"
+                title={`${locale === "he" ? h.he : h.en} — ${holidayText(h.id, locale)}`}>
+                <span className="h-emoji" aria-hidden>{holidayInfo(h.id)?.emoji}</span> {locale === "he" ? h.he : h.en}
               </li>
             ))}
           </ul>
