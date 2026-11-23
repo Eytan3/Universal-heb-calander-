@@ -233,8 +233,8 @@ const INFO: Record<string, HolidayInfo> = {
   },
   "leil-selichot": {
     emoji: "🙏",
-    he: "תחילת אמירת הסליחות במנהג האשכנזים, במוצאי שבת שלפני ראש השנה. הספרדים אומרים סליחות כבר מראש חודש אלול.",
-    en: "Ashkenazim begin reciting Selichot (penitential prayers) on the Saturday night before Rosh Hashana; Sephardim from the start of Elul.",
+    he: "תחילת אמירת הסליחות במנהג האשכנזים, במוצאי שבת שלפני ראש השנה. הספרדים, עדות המזרח והתימנים אומרים סליחות כבר מתחילת חודש אלול. אצל יהודי תימן הן נקראות ״אשמורות״.",
+    en: "Ashkenazim begin reciting Selichot (penitential prayers) on the Saturday night before Rosh Hashana; Sephardim, Mizrahi and Yemenite Jews from the start of Elul. Yemenite Jews call them \"Ashmurot\".",
     wiki: { he: "סליחות", en: "Selichot" },
   },
   "rosh-chodesh": {
