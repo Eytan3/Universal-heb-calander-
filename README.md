@@ -159,6 +159,8 @@ repository, so they are not visible on GitHub. With both set:
 - Security headers on every response: no framing (clickjacking), `nosniff`, `no-referrer`, restricted
   permissions.
 - Keep a backup: *Settings → Export → .json* saves everything, including Hebrew dates and rules.
+- Restore or merge a backup: *Settings → Import → .json*. It adds calendars (matched by name) and events;
+  nothing is deleted or overwritten, and events that already exist are skipped, so importing twice is safe.
 
 ## Deploy: GitHub and Vercel
 

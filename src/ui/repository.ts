@@ -13,6 +13,7 @@ import {
 } from "@/core/events/store";
 
 import { isPreview } from "./preview";
+import { importBackup, type ImportResult } from "@/core/events/import";
 
 export interface EventRepository {
   kind: "server" | "browser";
@@ -26,6 +27,8 @@ export interface EventRepository {
   removeCollection(id: string): Promise<void>;
   /** Recurring events: edit/delete one occurrence, or it and all future ones — one atomic operation. */
   occurrenceAction(uid: string, action: OccurrenceAction, recurrenceId: number, input?: EventInput): Promise<void>;
+  /** Import an Ittim backup (.json): adds calendars and events, never deletes or overwrites. */
+  importBackup(file: unknown): Promise<ImportResult>;
 }
 
 export class AuthRequiredError extends Error {}
@@ -87,6 +90,7 @@ export class ServerRepository implements EventRepository {
   async occurrenceAction(uid: string, action: OccurrenceAction, recurrenceId: number, input?: EventInput) {
     await call<unknown>(`/api/events/${encodeURIComponent(uid)}/occurrences`, { method: "POST", body: JSON.stringify({ action, recurrenceId, input }) });
   }
+  importBackup(file: unknown) { return call<ImportResult>("/api/import", { method: "POST", body: JSON.stringify(file) }); }
 }
 
 const LOCAL_KEY = "universal-calendar:events:v1";
@@ -119,6 +123,7 @@ export class BrowserRepository implements EventRepository {
   async occurrenceAction(uid: string, action: OccurrenceAction, recurrenceId: number, input?: EventInput) {
     this.apply((d) => applyOccurrenceAction(d, uid, action, recurrenceId, input, crypto.randomUUID()));
   }
+  async importBackup(file: unknown) { return this.apply((d) => importBackup(d, file, () => crypto.randomUUID())); }
 }
 
 export async function chooseRepository(): Promise<EventRepository> {

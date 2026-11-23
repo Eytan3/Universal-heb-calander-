@@ -18,9 +18,28 @@ interface Props {
   /** The user's own events and calendars (for export; never includes built-in holidays). */
   doc: EventStoreDocument;
   onClose: () => void;
+  /** Called after a successful import so the calendar reloads. */
+  onImported: () => Promise<void> | void;
 }
 
-export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc, onClose }: Props) {
+export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc, onClose, onImported }: Props) {
+  const [importState, setImportState] = useState<{ busy?: boolean; message?: string; problems?: string[]; error?: boolean } | null>(null);
+  const readOnly = repo?.kind === "server" && serverInfo.login === "viewer";
+
+  async function importFile(file: File) {
+    if (!repo) return;
+    setImportState({ busy: true });
+    let data: unknown;
+    try { data = JSON.parse(await file.text()); } catch { setImportState({ message: t.importBadFile, error: true }); return; }
+    try {
+      const r = await repo.importBackup(data);
+      await onImported();
+      setImportState({ message: t.importDone(r.added, r.skipped, r.calendarsCreated), problems: r.errors });
+    } catch (e) {
+      const msg = (e as Error).message;
+      setImportState({ message: /not an Ittim backup|Unrecognised/.test(msg) ? t.importBadFile : msg, error: true });
+    }
+  }
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState(getEditToken());
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -77,6 +96,33 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
               </>
             ) : <div className="row sub">{isPreview() ? t.previewNote : t.browserOnly}</div>}
           </section>
+
+          {!readOnly && (
+            <>
+              <h3 className="group-title">{t.importTitle}</h3>
+              <section className="group">
+                <label className={`row link-row${importState?.busy ? " disabled" : ""}`}>
+                  {importState?.busy ? t.importWorking : t.importButton}
+                  <input type="file" accept=".json,application/json" hidden disabled={importState?.busy}
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void importFile(f); }} />
+                </label>
+                {importState?.message && (
+                  <div className={`row sub${importState.error ? " import-error" : ""}`} role="status">
+                    <div>
+                      {importState.message}
+                      {importState.problems && importState.problems.length > 0 && (
+                        <>
+                          <br />{t.importProblems(importState.problems.length)}
+                          <ul className="import-problems">{importState.problems.slice(0, 10).map((p, i) => <li key={i} dir="auto">{p}</li>)}</ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="row sub">{t.importHelp}</div>
+              </section>
+            </>
+          )}
 
           <h3 className="group-title">{t.exportTitle}</h3>
           <section className="group">

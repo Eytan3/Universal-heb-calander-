@@ -413,7 +413,7 @@ export default function App() {
       )}
       {showKeys && <KeyboardHelp t={t} locale={locale} onClose={() => setShowKeys(false)} />}
       {showSettings && (
-        <SettingsDialog t={t} locale={locale} onLocale={setLocale} theme={theme} onTheme={setTheme} repo={repo} doc={doc} onClose={() => setShowSettings(false)} />
+        <SettingsDialog t={t} locale={locale} onLocale={setLocale} theme={theme} onTheme={setTheme} repo={repo} doc={doc} onClose={() => setShowSettings(false)} onImported={reload} />
       )}
     </main>
   );

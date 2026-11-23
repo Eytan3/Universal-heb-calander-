@@ -405,3 +405,11 @@ page and API path (redirecting pages to `/login`, answering 401 for the API), an
 `guard(req, "read" | "write")` again; on a public calendar only `guard` applies, and it refuses every write. Public paths: `/login`, `/api/login`, `/api/logout`, and the two feeds, which check their
 own token. Credential comparison hashes both sides and compares digests in constant time. A half-configured
 login (only one variable) fails closed.
+
+## Import
+
+`src/core/events/import.ts` merges an Ittim backup (.json, as written by Export) into a document: calendars
+are matched by name or created, every event is validated like a new one and gets a new UID, per-occurrence
+overrides are kept, and an event identical to an existing one (calendar, title, start, rules) is skipped, so
+imports are idempotent. The server applies it in one `mutate` (`POST /api/import`, owner only, up to 4 MB);
+the browser repository applies the same function to localStorage.

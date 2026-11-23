@@ -360,3 +360,9 @@ kbd { font-family: var(--font); font-size: 0.8rem; font-weight: 600; min-width: 
 .login-submit { border: 0; border-radius: 12px; min-height: 46px; background: var(--accent); color: #fff; font-weight: 600; font-size: 1rem; }
 .login-submit:disabled { opacity: 0.6; }
 .login-lang { align-self: center; font-size: 0.85rem; }
+
+/* ── Import (Settings) ── */
+label.link-row { cursor: pointer; }
+label.link-row.disabled { opacity: 0.6; cursor: default; }
+.import-error { color: var(--danger); }
+.import-problems { margin: 0.3rem 0 0; padding-inline-start: 1.1rem; }
