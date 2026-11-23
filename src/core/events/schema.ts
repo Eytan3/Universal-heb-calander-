@@ -62,6 +62,18 @@ export interface RecurrenceRule {
   until?: CalendarDate;
 }
 
+/**
+ * A change to a single occurrence of a recurring event (JSCalendar "recurrenceOverrides").
+ * `excluded` deletes that occurrence; otherwise any of title / description / start replace the
+ * series values for that occurrence only (a new `start` moves it to another day).
+ */
+export interface OccurrenceOverride {
+  excluded?: true;
+  title?: string;
+  description?: string;
+  start?: CalendarDate;
+}
+
 export interface UCEvent {
   "@type": "Event";
   uid: string;
@@ -73,6 +85,12 @@ export interface UCEvent {
   recurrenceRules?: RecurrenceRule[];
   /** The user calendar (collection) this event belongs to. */
   collectionId: string;
+  /**
+   * Per-occurrence changes, keyed by the occurrence's *recurrence id*: the EpochDay on which the
+   * series itself places it (JSCalendar keys by LocalDateTime; an absolute day keeps the key
+   * calendar-neutral). Ids that the rule no longer produces are ignored.
+   */
+  recurrenceOverrides?: Record<string, OccurrenceOverride>;
   /** RFC 3339 UTC instants. */
   created: string;
   updated: string;
@@ -194,8 +212,13 @@ export function createEvent(input: EventInput, uid: string, now: Date = new Date
 
 export function updateEvent(prev: UCEvent, input: EventInput, now: Date = new Date()): UCEvent {
   const next = createEvent(input, prev.uid, now);
-  return { ...next, created: prev.created, sequence: prev.sequence + 1 };
+  // Occurrence-level changes survive a series edit (ids the new rule no longer produces are ignored).
+  const keep = next.recurrenceRules?.length && prev.recurrenceOverrides && Object.keys(prev.recurrenceOverrides).length;
+  return { ...next, ...(keep ? { recurrenceOverrides: prev.recurrenceOverrides } : {}), created: prev.created, sequence: prev.sequence + 1 };
 }
+
+/** Cap on per-occurrence changes stored on one event. */
+export const MAX_OVERRIDES = 2000;
 
 export function defaultCollection(now: Date = new Date()): Collection {
   return { id: DEFAULT_COLLECTION_ID, name: "", color: COLLECTION_COLORS[0], created: now.toISOString() };

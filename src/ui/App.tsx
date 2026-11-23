@@ -2,14 +2,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getCalendar, gregorian, hebrew } from "@/core/calendars/registry";
 import type { CalendarDate, CalendarId, Locale, YearMonth } from "@/core/calendars/types";
-import { byDay, expandAll } from "@/core/events/expand";
+import { byDay, expandAll, expandEvent, type Occurrence } from "@/core/events/expand";
 import { describeRule } from "@/core/events/describe";
 import { emptyDocument, type EventInput, type EventStoreDocument, type UCEvent } from "@/core/events/schema";
 import { jewishHolidays, type HolidayOccurrence } from "@/core/holidays/registry";
 import { CalendarsPanel, displayName } from "./CalendarsPanel";
 import { readViewPrefs, saveViewPrefs, DEFAULT_VIEW, type ViewPrefs } from "./viewPrefs";
 import { todayEpochDay, type EpochDay } from "@/core/time/epochDay";
-import { EventEditor } from "./EventEditor";
+import { EventEditor, type Scope } from "./EventEditor";
 import { STRINGS } from "./i18n";
 import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
@@ -17,7 +17,7 @@ import { isPreview } from "./preview";
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { AuthRequiredError, chooseRepository, setEditToken, type EventRepository } from "./repository";
 
-type EditorState = { existing?: UCEvent; date: CalendarDate } | null;
+type EditorState = { existing?: UCEvent; date: CalendarDate; occurrence?: Occurrence } | null;
 
 const MODE_KEY = "universal-calendar:mode";
 const SIDEBAR_KEY = "universal-calendar:sidebar";
@@ -134,9 +134,13 @@ export default function App() {
 
   const selectDay = (date: CalendarDate, day: EpochDay) => { setSelected(day); setAddCalendar(date.calendar); };
   const addOnDay = (date: CalendarDate, day: EpochDay) => { selectDay(date, day); setEditor({ date }); };
+  /** Open an event on the occurrence shown on `day` (repeating events edit that occurrence, Apple-style). */
   const openEvent = (uid: string, day: EpochDay) => {
     const ev = eventsByUid.get(uid);
-    if (ev) { setSelected(day); setEditor({ existing: ev, date: ev.start }); }
+    if (!ev) return;
+    setSelected(day);
+    const occurrence = ev.recurrenceRules?.length ? expandEvent(ev, { start: day, end: day + 1 })[0] : undefined;
+    setEditor({ existing: ev, date: ev.start, occurrence });
   };
 
   const toggleSidebar = () => {
@@ -239,13 +243,13 @@ export default function App() {
                   return (
                     <li key={o.eventUid + o.key}>
                       <button type="button" className="up-item" style={{ "--c": colors.get(ev.collectionId) } as React.CSSProperties}
-                        onClick={() => setEditor({ existing: ev, date: ev.start })}>
-                        <span className="up-title" dir="auto">{ev.title}</span>
+                        onClick={() => openEvent(ev.uid, o.epochDay)}>
+                        <span className="up-title" dir="auto">{o.title ?? ev.title}</span>
                         <span className="up-when">{(() => { const c = doc.collections.find((x) => x.id === ev.collectionId); return c ? displayName(c, t) : ""; })()} · {native.calendarName(locale)}</span>
                         <span className="up-dates" dir="auto">
                           {describeRule(ev, locale)}
                           {o.adjustment !== "none" && ` · ${t.occurrenceAdjusted}`}
-                          {ev.description ? ` · ${ev.description}` : ""}
+                          {(o.description ?? ev.description) ? ` · ${o.description ?? ev.description}` : ""}
                         </span>
                       </button>
                     </li>
@@ -275,8 +279,18 @@ export default function App() {
           collections={doc.collections.map((c) => ({ id: c.id, name: displayName(c, t), color: c.color }))}
           defaultCollectionId={doc.collections.find((c) => !hidden.has(c.id))?.id ?? doc.collections[0].id}
           onClose={() => setEditor(null)}
-          onSave={(input: EventInput) => guarded(() => (editor.existing ? repo.update(editor.existing.uid, input) : repo.create(input)))}
-          onDelete={editor.existing ? () => guarded(() => repo.remove(editor.existing!.uid)) : undefined}
+          occurrence={editor.occurrence}
+          onSave={(input: EventInput, scope?: Scope) => guarded(() => {
+            const ex = editor.existing;
+            if (!ex) return repo.create(input);
+            if (scope && editor.occurrence) return repo.occurrenceAction(ex.uid, scope === "this" ? "edit-this" : "edit-future", editor.occurrence.recurrenceId, input);
+            return repo.update(ex.uid, input);
+          })}
+          onDelete={editor.existing ? (scope?: Scope) => guarded(() => {
+            const ex = editor.existing!;
+            if (scope && editor.occurrence) return repo.occurrenceAction(ex.uid, scope === "this" ? "delete-this" : "delete-future", editor.occurrence.recurrenceId);
+            return repo.remove(ex.uid);
+          }) : undefined}
         />
       )}
       {showSettings && (

@@ -164,6 +164,7 @@ later is a one-file change.
 | `recurrenceRules[0].from` | `CalendarDate`? | Repeats begin on this date (in the rule's calendar). The series stays anchored to `start`, and the original occurrence is kept. Kept for compatibility; the editor no longer sets it — like Apple Calendar, a repeat starts on the event's own date. Departure from JSCalendar (an RRULE equivalent would split the series). |
 | `recurrenceRules[0].until` | `CalendarDate`? | "End Repeat": last day repeats may occur (inclusive), in the rule's calendar. Exported as RRULE `UNTIL` for daily/weekly. |
 | `recurrenceRules[0].skip` | `omit`, `backward` or `forward` | RFC 7529 handling of dates missing in a month/year (monthly and yearly only). Absent means `omit` (the RFC default). |
+| `recurrenceOverrides` | `{ [recurrenceId]: { excluded?, title?, description?, start? } }`? | Changes to single occurrences (JSCalendar's `recurrenceOverrides`). Keyed by the *recurrence id*: the EpochDay on which the series itself places the occurrence (JSCalendar keys by LocalDateTime; an absolute day keeps the key calendar-neutral). `excluded` deletes it; `start` moves it. |
 | `created`, `updated` | RFC 3339 UTC | Server-managed. |
 | `sequence` | int | Incremented on every edit. Exported as iCalendar `SEQUENCE`. |
 
@@ -178,6 +179,19 @@ definition, and every view and the feed recompute.
 | **JSCalendar** (RFC 8984; draft-ietf-calext-jscalendarbis) | Object shape and names: `@type`, `uid`, `title`, `description`, `showWithoutTime`, `recurrenceRules[]` with `frequency`, `interval`, `rscale`, `skip`. | **`start` is a structured native date, not an ISO `LocalDateTime` string.** JSCalendar's `start` plus `rscale` would make the ISO/Gregorian date the stored truth, with the Hebrew meaning re-derived from it. We store the Hebrew date itself so that the definition never depends on Gregorian conversion. A lossless mapping to JSCalendar exists: `start` = ISO date of the first occurrence, `rscale` = calendar. |
 | **RFC 7529 (RSCALE)** | Leap-month codes (`5L`, which maps to `M05L`), `SKIP` semantics, evaluation order (month skip before day skip, then cascade). The §4.3.3 example (Adar I falling forward to Adar in common years) is implemented exactly. | RFC 7529 does not define BACKWARD for a missing leap month. We choose the preceding month (Shevat) by symmetry with FORWARD. RSCALE identifiers are uppercase CLDR names (`HEBREW`, `GREGORIAN`); internally we use the BCP-47/Temporal ids (`hebrew`, `gregory`). |
 | **iCalendar (RFC 5545)** | Output format for the ICS feed. | The feed is derived output. We do not emit RRULE/RSCALE because Apple Calendar does not implement RSCALE. See §5. |
+
+### Editing one occurrence vs. the future (Apple Calendar's model)
+
+`applyOccurrenceAction` (`core/events/store.ts`, served by `POST /api/events/:uid/occurrences`) runs as
+one atomic document change:
+- **edit-this** stores only the differences (title, notes, day) as an override; editing back to the
+  series values removes it. **delete-this** stores `excluded`.
+- **edit-future** ends the series the day before the occurrence (`until`), drops its overrides from that
+  day on, and creates a new event from the edited values; **delete-future** only ends the series. On the
+  first occurrence both simply act on the whole event.
+- The editor offers only *future* when the repeat rule itself changed.
+- ICS: daily/weekly series get `EXDATE` for deleted occurrences and same-UID instances with
+  `RECURRENCE-ID` for changed ones (RFC 5545 §3.8.4.4); materialised series carry the change directly.
 
 ### Recurrence semantics
 

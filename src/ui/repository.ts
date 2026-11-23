@@ -8,7 +8,9 @@ import {
   emptyDocument, parseDocument,
   type Collection, type CollectionInput, type EventInput, type EventStoreDocument, type UCEvent,
 } from "@/core/events/schema";
-import { addCollection, addEvent, changeCollection, removeCollection, removeEvent, replaceEvent } from "@/core/events/store";
+import {
+  addCollection, addEvent, applyOccurrenceAction, changeCollection, removeCollection, removeEvent, replaceEvent, type OccurrenceAction,
+} from "@/core/events/store";
 
 import { isPreview } from "./preview";
 
@@ -22,6 +24,8 @@ export interface EventRepository {
   createCollection(input: CollectionInput): Promise<Collection>;
   updateCollection(id: string, input: CollectionInput): Promise<Collection>;
   removeCollection(id: string): Promise<void>;
+  /** Recurring events: edit/delete one occurrence, or it and all future ones — one atomic operation. */
+  occurrenceAction(uid: string, action: OccurrenceAction, recurrenceId: number, input?: EventInput): Promise<void>;
 }
 
 export class AuthRequiredError extends Error {}
@@ -54,6 +58,9 @@ export class ServerRepository implements EventRepository {
   createCollection(input: CollectionInput) { return call<Collection>("/api/collections", { method: "POST", body: JSON.stringify(input) }); }
   updateCollection(id: string, input: CollectionInput) { return call<Collection>(`/api/collections/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }); }
   async removeCollection(id: string) { await call<unknown>(`/api/collections/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+  async occurrenceAction(uid: string, action: OccurrenceAction, recurrenceId: number, input?: EventInput) {
+    await call<unknown>(`/api/events/${encodeURIComponent(uid)}/occurrences`, { method: "POST", body: JSON.stringify({ action, recurrenceId, input }) });
+  }
 }
 
 const LOCAL_KEY = "universal-calendar:events:v1";
@@ -83,6 +90,9 @@ export class BrowserRepository implements EventRepository {
   async createCollection(input: CollectionInput) { return this.apply((d) => addCollection(d, input, crypto.randomUUID())); }
   async updateCollection(id: string, input: CollectionInput) { return this.apply((d) => changeCollection(d, id, input)); }
   async removeCollection(id: string) { this.apply((d) => removeCollection(d, id)); }
+  async occurrenceAction(uid: string, action: OccurrenceAction, recurrenceId: number, input?: EventInput) {
+    this.apply((d) => applyOccurrenceAction(d, uid, action, recurrenceId, input, crypto.randomUUID()));
+  }
 }
 
 export async function chooseRepository(): Promise<EventRepository> {

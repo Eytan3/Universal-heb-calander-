@@ -22,12 +22,17 @@ interface Props {
   today: EpochDay;
   existing?: UCEvent;
   initialDate: CalendarDate;
-  onSave: (input: EventInput) => Promise<void>;
-  onDelete?: () => Promise<void>;
+  /** scope is set when editing one occurrence of a repeating event (Apple's "this event only" / "all future events"). */
+  onSave: (input: EventInput, scope?: Scope) => Promise<void>;
+  onDelete?: (scope?: Scope) => Promise<void>;
+  /** The occurrence that was clicked, for repeating events. */
+  occurrence?: { recurrenceId: EpochDay; native: CalendarDate; title?: string; description?: string };
   onClose: () => void;
   collections: { id: string; name: string; color: string }[];
   defaultCollectionId: string;
 }
+
+export type Scope = "this" | "future";
 
 type Preset = "never" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "custom";
 const PRESETS: Record<Exclude<Preset, "never" | "custom">, { frequency: Frequency; interval: number }> = {
@@ -75,9 +80,13 @@ export function EventEditor(p: Props) {
   const { t, locale } = p;
   const ex = p.existing;
   const exRule = ex?.recurrenceRules?.[0];
-  const [title, setTitle] = useState(ex?.title ?? "");
-  const [description, setDescription] = useState(ex?.description ?? "");
-  const [date, setDate] = useState<CalendarDate>(ex?.start ?? p.initialDate);
+  // A repeating event opens on the occurrence that was clicked (its own date, title and notes).
+  const occ = exRule ? p.occurrence : undefined;
+  const [title, setTitle] = useState(occ?.title ?? ex?.title ?? "");
+  const [description, setDescription] = useState(occ?.description ?? ex?.description ?? "");
+  const [date, setDate] = useState<CalendarDate>(occ?.native ?? ex?.start ?? p.initialDate);
+  /** Apple-style action sheet: which scope to save/delete with. */
+  const [ask, setAsk] = useState<null | "save" | "delete">(null);
   // Apple's default for a new event: does not repeat.
   const [preset, setPreset] = useState<Preset>(presetOf(exRule?.frequency, exRule?.interval));
   const [customFreq, setCustomFreq] = useState<Frequency>(exRule?.frequency ?? "weekly");
@@ -87,7 +96,6 @@ export function EventEditor(p: Props) {
   const [collectionId, setCollectionId] = useState(ex?.collectionId ?? p.defaultCollectionId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const cal = getCalendar(date.calendar);
   const frequency: Frequency | null = preset === "never" ? null : preset === "custom" ? customFreq : PRESETS[preset].frequency;
@@ -128,26 +136,36 @@ export function EventEditor(p: Props) {
   const preview = useMemo(() => {
     if (!draft || !frequency) return [];
     const horizon = frequency === "daily" ? 40 * interval : frequency === "weekly" ? 300 * interval : 366 * 12 * (frequency === "yearly" ? interval : 1);
-    return expandEvent(draft, { start: Math.min(p.today, cal.toEpochDay(date)), end: p.today + horizon }).slice(0, 4);
+    // Reflect occurrences already changed or deleted individually (same series, so the same ids).
+    const withOverrides = ex?.recurrenceOverrides ? { ...draft, recurrenceOverrides: ex.recurrenceOverrides } : draft;
+    return expandEvent(withOverrides, { start: Math.min(p.today, cal.toEpochDay(date)), end: p.today + horizon }).slice(0, 4);
   }, [draft, frequency, interval, p.today, cal, date]);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    const v = validateEventInput(input);
-    if (!v.ok) { setError(v.errors.join(", ")); return; }
+  // Changing how the event repeats can only apply from this occurrence on (as in Apple Calendar).
+  const ruleChanged = Boolean(exRule) && (
+    frequency !== exRule!.frequency || interval !== (exRule!.interval ?? 1) || date.calendar !== ex!.start.calendar
+    || JSON.stringify(untilDate ?? null) !== JSON.stringify(exRule!.until ?? null)
+    || ((frequency === "monthly" || frequency === "yearly") && skip !== (exRule!.skip ?? "omit")));
+
+  async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError(null);
-    try { await p.onSave(v.value); p.onClose(); }
-    catch (err) { setError(`${t.errorPrefix} ${(err as Error).message}`); }
+    try { await fn(); p.onClose(); }
+    catch (err) { setError(`${t.errorPrefix} ${(err as Error).message}`); setAsk(null); }
     finally { setBusy(false); }
   }
 
-  async function remove() {
-    if (!p.onDelete) return;
-    // In-sheet two-step confirmation (window.confirm is blocked in sandboxed frames).
-    if (!confirmingDelete) { setConfirmingDelete(true); return; }
-    setBusy(true);
-    try { await p.onDelete(); p.onClose(); } catch (err) { setError(`${t.errorPrefix} ${(err as Error).message}`); setBusy(false); }
+  function save(e: React.FormEvent) {
+    e.preventDefault();
+    const v = validateEventInput(input);
+    if (!v.ok) { setError(v.errors.join(", ")); return; }
+    if (occ) { setAsk("save"); return; } // repeating event: ask which occurrences to change
+    run(() => p.onSave(v.value));
+  }
+
+  function saveWith(scope: Scope) {
+    const v = validateEventInput(input);
+    if (v.ok) run(() => p.onSave(v.value, scope));
   }
 
   const otherCals = CALENDAR_IDS.filter((c) => c !== date.calendar).map((c) => getCalendar(c));
@@ -276,12 +294,40 @@ export function EventEditor(p: Props) {
 
           {p.onDelete && (
             <section className="group">
-              <button type="button" className={`row danger-row${confirmingDelete ? " armed" : ""}`} onClick={remove} disabled={busy}>
-                {confirmingDelete ? t.confirmDelete : t.deleteEvent}
-              </button>
+              <button type="button" className="row danger-row" onClick={() => setAsk("delete")} disabled={busy}>{t.deleteEvent}</button>
             </section>
           )}
         </div>
+
+        {ask && (
+          // Action sheet over the editor, as in iOS: repeating events choose a scope; others confirm.
+          <div className="action-sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setAsk(null)}>
+            <div className="action-sheet" role="alertdialog" aria-labelledby="ask-title">
+              <div className="action-group">
+                <p id="ask-title" className="action-title">
+                  {occ ? t.repeatingPrompt : t.deletePrompt}
+                  {occ && ask === "save" && ruleChanged && <span className="action-sub">{t.ruleChangedNote}</span>}
+                </p>
+                {ask === "save" && !ruleChanged && (
+                  <button type="button" className="action-btn" disabled={busy} onClick={() => saveWith("this")}>{t.saveThis}</button>
+                )}
+                {ask === "save" && (
+                  <button type="button" className="action-btn" disabled={busy} onClick={() => saveWith("future")}>{t.saveFuture}</button>
+                )}
+                {ask === "delete" && occ && (
+                  <>
+                    <button type="button" className="action-btn destructive" disabled={busy} onClick={() => run(() => p.onDelete!("this"))}>{t.deleteThis}</button>
+                    <button type="button" className="action-btn destructive" disabled={busy} onClick={() => run(() => p.onDelete!("future"))}>{t.deleteFuture}</button>
+                  </>
+                )}
+                {ask === "delete" && !occ && (
+                  <button type="button" className="action-btn destructive" disabled={busy} onClick={() => run(() => p.onDelete!())}>{t.deleteEvent}</button>
+                )}
+              </div>
+              <button type="button" className="action-btn cancel" onClick={() => setAsk(null)} autoFocus>{t.cancel}</button>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -65,7 +65,9 @@ npm start              # http://localhost:3000
   Monthly and yearly repeats follow the event's own calendar. If the date can be missing (the 30th in a
   29-day Hebrew month, the 31st, Adar I, 29 February), the editor asks what to do: next day (default),
   previous day, or skip.
-- **Edit or delete:** click an event in the month or in the day list.
+- **Edit or delete:** click an event in the month or in the day list. For a repeating event the editor
+  opens on the occurrence you clicked, and saving or deleting asks — as in Apple Calendar — **This Event
+  Only** or **All Future Events**. Changing how it repeats always applies from that occurrence on.
 - **Navigate:** use ‹ › to move between months, or pick a month or year.
 - **Calendars panel (side):** tick a calendar to show or hide it; **⋯** renames it, changes its colour,
   copies its Apple Calendar link, exports it (`.ics` / `.json`) or deletes it (with its events, after a

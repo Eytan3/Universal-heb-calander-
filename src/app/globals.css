@@ -308,3 +308,17 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   .row:has(.date-fields) { flex-wrap: wrap; }
   .date-fields { margin-inline-start: auto; }
 }
+
+/* ── Action sheet (iOS-style choice over a sheet) ───────── */
+.action-sheet-backdrop { position: fixed; inset: 0; z-index: 30; background: rgb(0 0 0 / 0.25); display: grid; place-items: end center; padding: 1rem; animation: fade-in 140ms ease-out; }
+.action-sheet { width: min(420px, 100%); display: flex; flex-direction: column; gap: 0.5rem; animation: sheet-up 220ms cubic-bezier(.2, .8, .2, 1); }
+.action-group { background: var(--glass); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 0 0 0.5px var(--glass-line), 0 20px 50px rgb(0 0 0 / 0.25); }
+.action-title { margin: 0; padding: 0.85rem 1rem; text-align: center; color: var(--muted); font-size: 0.85rem; border-bottom: 0.5px solid var(--line); }
+.action-sub { display: block; margin-top: 0.2rem; font-size: 0.8rem; }
+.action-btn { display: block; width: 100%; border: 0; background: transparent; padding: 0.95rem 1rem; font-size: 1.05rem; color: var(--accent); text-align: center; }
+.action-group .action-btn + .action-btn { border-top: 0.5px solid var(--line); }
+.action-btn:active { background: var(--fill); }
+.action-btn.destructive { color: var(--danger); }
+.action-btn.cancel { background: var(--group); border-radius: 16px; font-weight: 700; box-shadow: 0 0 0 0.5px var(--glass-line), 0 20px 50px rgb(0 0 0 / 0.2); }
+@media (min-width: 601px) { .action-sheet-backdrop { place-items: center; } }

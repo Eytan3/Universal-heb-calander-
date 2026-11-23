@@ -18,6 +18,12 @@ export interface Occurrence {
   /** The occurrence as a date in the event's own calendar. */
   native: CalendarDate;
   adjustment: Adjustment;
+  /** Where the series itself places this occurrence (the key of any override). Equals epochDay unless moved. */
+  recurrenceId: EpochDay;
+  /** Per-occurrence values from an override, when present. */
+  title?: string;
+  description?: string;
+  overridden?: boolean;
 }
 
 export interface Range {
@@ -57,7 +63,35 @@ export function resolveYearlyDate(
   return { date: { calendar: cal.id, ...next, day: 1 }, adjustment: "day-forward" };
 }
 
+/**
+ * Occurrences of an event in a range, with per-occurrence overrides applied
+ * (excluded occurrences removed, moved ones placed on their new day, retitled ones annotated).
+ */
 export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
+  const base = expandSeries(event, range).map((o) => ({ ...o, recurrenceId: o.epochDay }));
+  const overrides = event.recurrenceOverrides;
+  if (!overrides || !event.recurrenceRules?.length) return base;
+  const out: Occurrence[] = [];
+  for (const o of base) {
+    const ov = overrides[String(o.epochDay)];
+    if (!ov) { out.push(o); continue; }
+    if (ov.excluded || ov.start) continue; // deleted, or moved (placed below by its new day)
+    out.push({ ...o, title: ov.title, description: ov.description, overridden: true });
+  }
+  for (const [id, ov] of Object.entries(overrides)) {
+    if (ov.excluded || !ov.start) continue;
+    const moved = getCalendar(ov.start.calendar).toEpochDay(ov.start);
+    if (moved < range.start || moved >= range.end) continue;
+    const rid = Number(id);
+    const original = expandSeries(event, { start: rid, end: rid + 1 }).find((o) => o.epochDay === rid);
+    if (!original) continue; // the rule no longer produces this occurrence
+    out.push({ ...original, recurrenceId: rid, epochDay: moved, native: ov.start, title: ov.title, description: ov.description, overridden: true });
+  }
+  return out.sort((a, b) => a.epochDay - b.epochDay);
+}
+
+/** The series alone: the rule, `from` and `until`, without per-occurrence overrides. */
+function expandSeries(event: UCEvent, range: Range): Omit<Occurrence, "recurrenceId">[] {
   const cal = getCalendar(event.start.calendar);
   const rule = event.recurrenceRules?.[0];
   const { start } = event;
@@ -80,7 +114,7 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
   return all.filter((o) => (o.epochDay >= fromDay || o.epochDay === startDay) && o.epochDay <= untilDay);
 }
 
-function expandYearly(event: UCEvent, range: Range): Occurrence[] {
+function expandYearly(event: UCEvent, range: Range): Omit<Occurrence, "recurrenceId">[] {
   const cal = getCalendar(event.start.calendar);
   const rule = event.recurrenceRules![0];
   const { start } = event;
@@ -90,7 +124,7 @@ function expandYearly(event: UCEvent, range: Range): Occurrence[] {
   // A small margin of native years either side covers year boundaries that do not align with the range.
   const loYear = Math.max(start.year, cal.fromEpochDay(range.start).year - 1);
   const hiYear = Math.min(cal.maxYear, cal.fromEpochDay(range.end).year + 1);
-  const out: Occurrence[] = [];
+  const out: Omit<Occurrence, "recurrenceId">[] = [];
 
   for (let y = loYear; y <= hiYear; y++) {
     if ((y - start.year) % interval !== 0) continue;
@@ -109,13 +143,13 @@ function expandYearly(event: UCEvent, range: Range): Occurrence[] {
 const MAX_OCCURRENCES = 5000;
 
 /** Daily / weekly: a fixed number of days on the absolute axis — the same in every calendar. */
-function expandFixedStep(event: UCEvent, range: Range): Occurrence[] {
+function expandFixedStep(event: UCEvent, range: Range): Omit<Occurrence, "recurrenceId">[] {
   const cal = getCalendar(event.start.calendar);
   const rule = event.recurrenceRules![0];
   const step = (rule.interval ?? 1) * (rule.frequency === "weekly" ? 7 : 1);
   const first = cal.toEpochDay(event.start);
   const k0 = Math.max(0, Math.ceil((range.start - first) / step));
-  const out: Occurrence[] = [];
+  const out: Omit<Occurrence, "recurrenceId">[] = [];
   for (let d = first + k0 * step; d < range.end && out.length < MAX_OCCURRENCES; d += step) {
     out.push({ eventUid: event.uid, key: `day-${d}`, epochDay: d, native: cal.fromEpochDay(d), adjustment: "none" });
   }
@@ -127,7 +161,7 @@ function expandFixedStep(event: UCEvent, range: Range): Occurrence[] {
  * A Hebrew monthly event follows Hebrew months (including Adar I in leap years);
  * a 30th that a 29-day month lacks is handled by the rule's SKIP policy.
  */
-function expandMonthly(event: UCEvent, range: Range): Occurrence[] {
+function expandMonthly(event: UCEvent, range: Range): Omit<Occurrence, "recurrenceId">[] {
   const cal = getCalendar(event.start.calendar);
   const rule = event.recurrenceRules![0];
   const interval = rule.interval ?? 1;
@@ -139,7 +173,7 @@ function expandMonthly(event: UCEvent, range: Range): Occurrence[] {
   // Jump close to the range instead of walking every month since the start (months are ≥ 28 days).
   let k = Math.max(0, Math.floor((range.start - firstDay) / 31) - 2);
   k -= k % interval;
-  const out: Occurrence[] = [];
+  const out: Omit<Occurrence, "recurrenceId">[] = [];
   // Step forward incrementally from the first candidate month (one jump, then small steps).
   let ym = cal.addMonths(startYm, k);
   for (; out.length < MAX_OCCURRENCES; k += interval, ym = cal.addMonths(ym, interval)) {

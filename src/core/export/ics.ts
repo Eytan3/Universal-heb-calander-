@@ -114,12 +114,28 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
     const first = original + Math.ceil((fromDay - original) / step) * step;
     const desc = `DESCRIPTION:${escapeText([`Rule: ${describeRule(ev, "en")}`, ev.description].filter(Boolean).join("\n"))}`;
     if (first !== original) lines.push(...veventHead(ev, `${ev.uid}.origin@${domain}`, original), desc, "END:VEVENT");
+    // Per-occurrence changes: deleted ones become EXDATE; changed/moved ones are separate
+    // instances of the same UID with RECURRENCE-ID (RFC 5545 §3.8.4.4).
+    const overrides = Object.entries(ev.recurrenceOverrides ?? {}).filter(([id]) => Number(id) >= first);
+    const exdates = overrides.filter(([, o]) => o.excluded).map(([id]) => icsDate(Number(id)));
+    const seriesUid = `${ev.uid}.rule@${domain}`;
     lines.push(
-      ...veventHead(ev, `${ev.uid}.rule@${domain}`, first),
+      ...veventHead(ev, seriesUid, first),
       `RRULE:FREQ=${rule.frequency.toUpperCase()};INTERVAL=${rule.interval ?? 1}${rule.until ? `;UNTIL=${icsDate(cal.toEpochDay(rule.until))}` : ""}`,
+      ...(exdates.length ? [`EXDATE;VALUE=DATE:${exdates.join(",")}`] : []),
       desc,
       "END:VEVENT",
     );
+    for (const [id, o] of overrides) {
+      if (o.excluded) continue;
+      const day = o.start ? getCalendar(o.start.calendar).toEpochDay(o.start) : Number(id);
+      const head = veventHead({ ...ev, title: o.title ?? ev.title }, seriesUid, day);
+      lines.push(
+        ...head.slice(0, 2), `RECURRENCE-ID;VALUE=DATE:${icsDate(Number(id))}`, ...head.slice(2),
+        `DESCRIPTION:${escapeText([`Rule: ${describeRule(ev, "en")}`, o.description ?? ev.description].filter(Boolean).join("\n"))}`,
+        "END:VEVENT",
+      );
+    }
   }
 
   // Monthly / yearly / one-time: materialised occurrences, because their meaning depends on
@@ -132,11 +148,11 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
       `${cal.calendarName("en")} date: ${nativeEn}`,
       ev.start.calendar === "hebrew" ? `תאריך עברי: ${cal.formatDate(occ.native, "he")}` : null,
       `Rule: ${describeRule(ev, "en")}`,
-      ev.description ?? null,
+      occ.description ?? ev.description ?? null,
     ].filter(Boolean) as string[];
 
     lines.push(
-      ...veventHead(ev, `${ev.uid}.${occ.key}@${domain}`, occ.epochDay),
+      ...veventHead({ ...ev, title: occ.title ?? ev.title }, `${ev.uid}.${occ.key}@${domain}`, occ.epochDay),
       `DESCRIPTION:${escapeText(descParts.join("\n"))}`,
       `X-UNIVERSAL-CALENDAR-NATIVE-DATE:${occ.native.calendar}:${occ.native.year}-${occ.native.monthCode}-${String(occ.native.day).padStart(2, "0")}`,
       "END:VEVENT",

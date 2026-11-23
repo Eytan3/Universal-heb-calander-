@@ -103,11 +103,11 @@ export function MonthView(p: Props) {
                   className="chip"
                   style={{ "--c": p.colors.get(ev.collectionId) ?? "var(--hebrew)" } as React.CSSProperties}
                   dir="auto"
-                  title={`${ev.title} — ${describeRule(ev, locale)}${x.adjustment !== "none" ? ` (${t.occurrenceAdjusted})` : ""}`}
+                  title={`${x.title ?? ev.title} — ${describeRule(ev, locale)}${x.adjustment !== "none" ? ` (${t.occurrenceAdjusted})` : ""}`}
                   onClick={() => p.onEventClick(ev.uid, day)}
                 >
                   {x.adjustment !== "none" && <span aria-hidden>↷ </span>}
-                  {ev.title}
+                  {x.title ?? ev.title}
                 </button>
               </li>
             );
