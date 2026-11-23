@@ -2,8 +2,9 @@
  * Single-owner login (user + password), configured only through environment variables:
  *   UC_USER, UC_PASSWORD        both set → login required for the app and its API
  *   UC_SESSION_SECRET           optional extra secret mixed into session/feed keys
- *   UC_VISIBILITY               "public" (default): anyone may view, only the owner may change anything
- *                               "private": viewing needs the login too
+ *   UC_VISIBILITY               "private" (default): the web app needs the login even to view;
+ *                               calendar apps use the feed link with its private token
+ *                               "public": anyone may view read-only, only the owner may change anything
  *   UC_FEED_TOKEN               optional fixed token for the Apple Calendar feed (with a private
  *                               calendar one is otherwise derived from the credentials)
  *
@@ -32,7 +33,7 @@ export function authConfig(env: Env = process.env): AuthConfig {
 
 /** With login on: may people who are not signed in still view the calendar (read-only)? */
 export function publicView(env: Env = process.env): boolean {
-  return (env.UC_VISIBILITY ?? "public").trim().toLowerCase() !== "private";
+  return (env.UC_VISIBILITY ?? "").trim().toLowerCase() === "public";
 }
 
 const enc = new TextEncoder();

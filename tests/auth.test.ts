@@ -48,16 +48,16 @@ describe("owner login", () => {
     expect(readCookie("a=1; b=2", "b")).toBe("2");
   });
 
-  it("is a public (view-only) calendar by default, private on request", () => {
-    expect(publicView({})).toBe(true);
-    expect(publicView({ UC_VISIBILITY: "public" })).toBe(true);
-    expect(publicView({ UC_VISIBILITY: " Private " })).toBe(false);
+  it("is private by default, public (view-only) on request", () => {
+    expect(publicView({})).toBe(false);
+    expect(publicView({ UC_VISIBILITY: "private" })).toBe(false);
+    expect(publicView({ UC_VISIBILITY: " Public " })).toBe(true);
   });
 
   it("feed: open on a public calendar; a stable private token on a private one, or UC_FEED_TOKEN", async () => {
     expect(await feedToken({})).toBe("");
-    expect(await feedToken(env)).toBe(""); // public calendar → public feed
-    const priv = { ...env, UC_VISIBILITY: "private" };
+    expect(await feedToken({ ...env, UC_VISIBILITY: "public" })).toBe(""); // public calendar → public feed
+    const priv = env; // private by default
     const t = await feedToken(priv);
     expect(t).toMatch(/^[A-Za-z0-9_-]{32}$/);
     expect(await feedToken(priv)).toBe(t);

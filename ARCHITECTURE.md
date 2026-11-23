@@ -396,8 +396,9 @@ edit. Two optional shared secrets cover the single-user case:
 
 `src/server/auth.ts` implements a single-owner login configured only by environment variables
 (`UC_USER`, `UC_PASSWORD`, optional `UC_SESSION_SECRET`). Writes always need the owner's session.
-`UC_VISIBILITY` decides reads: `public` (default) lets anyone view read-only (`/api/status` reports
-`login: "viewer"` and the UI hides every editing control); `private` requires the session for reads too. Sessions are stateless: the cookie
+`UC_VISIBILITY` decides reads: `private` (default) requires the session for reads too (the events feed
+then needs a private token); `public` lets anyone view read-only (`/api/status` reports `login: "viewer"`
+and the UI hides every editing control). Sessions are stateless: the cookie
 `ittim_session = v1.<user>.<expiry>.<HMAC>` is signed with a key derived from the credentials (Web Crypto,
 so the same code runs in the proxy and in route handlers). On a private calendar checks happen twice: `src/proxy.ts` gates every
 page and API path (redirecting pages to `/login`, answering 401 for the API), and each API route calls

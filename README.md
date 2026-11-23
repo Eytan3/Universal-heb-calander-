@@ -141,11 +141,12 @@ All variables are listed in [`.env.example`](./.env.example).
 repository, so they are not visible on GitHub. With both set:
 - **only the signed-in owner can add, change or delete** events and calendars. Every API route that changes
   data refuses requests without a valid session, whatever the browser shows;
-- **viewing stays open by default** (`UC_VISIBILITY=public`): visitors see the calendar read-only, with a
-  "Sign in to edit" button, and the `.ics` feeds work as before;
-- `UC_VISIBILITY=private` hides it too: every page and the API need the login, and the events feed needs a
-  private `?token=…` (Settings adds it to the link it shows; it is derived from the credentials, so changing
-  the password changes the link, unless `UC_FEED_TOKEN` is set);
+- **the calendar is private by default**: every page and the API need the login, so a casual visitor sees
+  only the sign-in screen. Calendar apps cannot log in, so the events feed needs a private `?token=…`;
+  Settings adds it to the link it shows. It is derived from the credentials (changing the password changes
+  the link) unless `UC_FEED_TOKEN` is set. Share that link only with devices or people who should see it;
+- `UC_VISIBILITY=public` opens viewing instead: visitors see the calendar read-only, with a "Sign in to
+  edit" button, and the feeds need no token;
 - sessions are HMAC-signed, HttpOnly cookies valid for 30 days; changing the password signs out every device;
 - repeated wrong passwords are slowed down and then locked out for a growing period;
 - if only one of the two variables is set, the app refuses all access instead of running unprotected.
