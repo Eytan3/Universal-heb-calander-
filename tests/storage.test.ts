@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createEvent } from "@/core/events/schema";
+import { createEvent, emptyDocument } from "@/core/events/schema";
 
 const event = createEvent({ title: "x", start: { calendar: "hebrew", year: 5787, monthCode: "M03", day: 15 } }, "u1");
 
@@ -22,14 +22,14 @@ describe("storage backends", () => {
     expect(getStore().kind).toBe("file");
     await mutate((doc) => { doc.events.push(event); });
     const saved = JSON.parse(readFileSync(file, "utf8"));
-    expect(saved).toEqual({ schemaVersion: 1, events: [event] });
+    expect(saved).toMatchObject({ schemaVersion: 2, collections: [{ id: "personal" }], events: [event] });
     expect((await getStore().load()).events[0].start).toEqual(event.start);
   });
 
   it("refuses to fake persistence on Vercel without Redis", async () => {
     const { getStore, StorageUnavailableError } = await freshStorage({ VERCEL: "1" });
     expect(getStore().kind).toBe("none");
-    await expect(getStore().save({ schemaVersion: 1, events: [] })).rejects.toBeInstanceOf(StorageUnavailableError);
+    await expect(getStore().save(emptyDocument())).rejects.toBeInstanceOf(StorageUnavailableError);
   });
 
   it("Upstash store speaks the REST command protocol (simulated server)", async () => {

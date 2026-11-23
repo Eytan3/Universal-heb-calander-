@@ -5,19 +5,23 @@
  * Both apply the same core create/update rules, so documents are identical in shape.
  */
 import {
-  createEvent, emptyDocument, parseDocument, updateEvent,
-  type EventInput, type EventStoreDocument, type UCEvent,
+  emptyDocument, parseDocument,
+  type Collection, type CollectionInput, type EventInput, type EventStoreDocument, type UCEvent,
 } from "@/core/events/schema";
+import { addCollection, addEvent, changeCollection, removeCollection, removeEvent, replaceEvent } from "@/core/events/store";
 
 import { isPreview } from "./preview";
 
 export interface EventRepository {
   kind: "server" | "browser";
   storage: string;
-  list(): Promise<UCEvent[]>;
+  load(): Promise<EventStoreDocument>;
   create(input: EventInput): Promise<UCEvent>;
   update(uid: string, input: EventInput): Promise<UCEvent>;
   remove(uid: string): Promise<void>;
+  createCollection(input: CollectionInput): Promise<Collection>;
+  updateCollection(id: string, input: CollectionInput): Promise<Collection>;
+  removeCollection(id: string): Promise<void>;
 }
 
 export class AuthRequiredError extends Error {}
@@ -43,14 +47,18 @@ async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
 export class ServerRepository implements EventRepository {
   kind = "server" as const;
   constructor(public storage: string) {}
-  async list() { return (await call<EventStoreDocument>("/api/events")).events; }
+  async load() { return parseDocument(await call<EventStoreDocument>("/api/events")); }
   create(input: EventInput) { return call<UCEvent>("/api/events", { method: "POST", body: JSON.stringify(input) }); }
   update(uid: string, input: EventInput) { return call<UCEvent>(`/api/events/${encodeURIComponent(uid)}`, { method: "PUT", body: JSON.stringify(input) }); }
   async remove(uid: string) { await call<void>(`/api/events/${encodeURIComponent(uid)}`, { method: "DELETE" }); }
+  createCollection(input: CollectionInput) { return call<Collection>("/api/collections", { method: "POST", body: JSON.stringify(input) }); }
+  updateCollection(id: string, input: CollectionInput) { return call<Collection>(`/api/collections/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }); }
+  async removeCollection(id: string) { await call<unknown>(`/api/collections/${encodeURIComponent(id)}`, { method: "DELETE" }); }
 }
 
 const LOCAL_KEY = "universal-calendar:events:v1";
 
+/** Same operations as the server (core/events/store.ts), kept in this browser's localStorage. */
 export class BrowserRepository implements EventRepository {
   kind = "browser" as const;
   storage = "localStorage";
@@ -62,30 +70,19 @@ export class BrowserRepository implements EventRepository {
       return emptyDocument();
     }
   }
-  private write(doc: EventStoreDocument) {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(doc)); // throws if storage is unavailable: surfaced to the editor
-  }
-  async list() { return this.read().events; }
-  async create(input: EventInput) {
+  private apply<T>(fn: (doc: EventStoreDocument) => T): T {
     const doc = this.read();
-    const e = createEvent(input, crypto.randomUUID());
-    doc.events.push(e);
-    this.write(doc);
-    return e;
+    const result = fn(doc);
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(doc)); // throws if storage is unavailable: surfaced to the UI
+    return result;
   }
-  async update(uid: string, input: EventInput) {
-    const doc = this.read();
-    const i = doc.events.findIndex((e) => e.uid === uid);
-    if (i < 0) throw new Error("not found");
-    doc.events[i] = updateEvent(doc.events[i], input);
-    this.write(doc);
-    return doc.events[i];
-  }
-  async remove(uid: string) {
-    const doc = this.read();
-    doc.events = doc.events.filter((e) => e.uid !== uid);
-    this.write(doc);
-  }
+  async load() { return this.read(); }
+  async create(input: EventInput) { return this.apply((d) => addEvent(d, input, crypto.randomUUID())); }
+  async update(uid: string, input: EventInput) { return this.apply((d) => replaceEvent(d, uid, input)); }
+  async remove(uid: string) { this.apply((d) => removeEvent(d, uid)); }
+  async createCollection(input: CollectionInput) { return this.apply((d) => addCollection(d, input, crypto.randomUUID())); }
+  async updateCollection(id: string, input: CollectionInput) { return this.apply((d) => changeCollection(d, id, input)); }
+  async removeCollection(id: string) { this.apply((d) => removeCollection(d, id)); }
 }
 
 export async function chooseRepository(): Promise<EventRepository> {

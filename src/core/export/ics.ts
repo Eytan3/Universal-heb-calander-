@@ -139,3 +139,35 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
   lines.push("END:VCALENDAR");
   return lines.map(foldLine).join(CRLF) + CRLF;
 }
+
+/** ICS for a built-in holiday set (separate feed, so the main feeds stay clean). */
+export function buildHolidaysIcs(
+  occurrences: { id: string; epochDay: EpochDay; en: string; he: string }[],
+  opts: { calendarName: string; uidDomain?: string; locale: "en" | "he"; refreshInterval?: string },
+): string {
+  const domain = opts.uidDomain ?? "universal-calendar";
+  const refresh = opts.refreshInterval ?? "P1D";
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Universal Calendar//Universal Calendar 0.1//EN",
+    "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    `NAME:${escapeText(opts.calendarName)}`, `X-WR-CALNAME:${escapeText(opts.calendarName)}`,
+    `REFRESH-INTERVAL;VALUE=DURATION:${refresh}`, `X-PUBLISHED-TTL:${refresh}`,
+  ];
+  for (const o of occurrences) {
+    lines.push(
+      "BEGIN:VEVENT",
+      // Stable: the same holiday on the same day always has the same UID.
+      `UID:holiday.${o.id}.${icsDate(o.epochDay)}@${domain}`,
+      "DTSTAMP:20260101T000000Z",
+      `DTSTART;VALUE=DATE:${icsDate(o.epochDay)}`,
+      `DTEND;VALUE=DATE:${icsDate(o.epochDay + 1)}`,
+      `SUMMARY:${escapeText(opts.locale === "he" ? o.he : o.en)}`,
+      `DESCRIPTION:${escapeText(opts.locale === "he" ? o.en : o.he)}`,
+      "TRANSP:TRANSPARENT",
+      "CATEGORIES:Holiday",
+      "END:VEVENT",
+    );
+  }
+  lines.push("END:VCALENDAR");
+  return lines.map(foldLine).join(CRLF) + CRLF;
+}

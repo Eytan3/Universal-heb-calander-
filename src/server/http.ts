@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { StoreError } from "@/core/events/store";
 import { StorageUnavailableError } from "./storage";
 
 export function json(data: unknown, status = 200): Response {
@@ -30,6 +31,7 @@ export function checkFeedToken(url: URL): boolean {
 
 export function errorResponse(e: unknown): Response {
   if (e instanceof StorageUnavailableError) return json({ error: e.message, storage: "none" }, 503);
+  if (e instanceof StoreError) return json({ error: e.message }, e.status);
   console.error(e);
   return json({ error: "internal error" }, 500);
 }

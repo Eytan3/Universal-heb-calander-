@@ -7,6 +7,7 @@
 import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/calendars/types";
 import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
+import type { HolidayOccurrence } from "@/core/holidays/types";
 import { describeRule } from "@/core/events/describe";
 import { weekdayOf, type EpochDay } from "@/core/time/epochDay";
 import type { Strings } from "./i18n";
@@ -22,6 +23,10 @@ interface Props {
   selected: EpochDay | null;
   occurrences: Map<EpochDay, Occurrence[]>;
   events: Map<string, UCEvent>;
+  /** Built-in holidays to show (empty map = clean calendar). */
+  holidays: Map<EpochDay, HolidayOccurrence[]>;
+  /** Colour of each user calendar, by collection id. */
+  colors: Map<string, string>;
   /** Single click: select the day (shows its events in the day list). */
   onDayClick: (date: CalendarDate, day: EpochDay) => void;
   /** Double click: open the editor for a new event on that day. */
@@ -58,6 +63,7 @@ export function MonthView(p: Props) {
     const o = other.fromEpochDay(day);
     const showOtherMonth = o.day === 1 || d === 1;
     const occ = p.occurrences.get(day) ?? [];
+    const hol = p.holidays.get(day) ?? [];
     const cls = ["cell", day === p.today && "today", day === p.selected && "selected", weekdayOf(day) === 6 && "shabbat"].filter(Boolean).join(" ");
     const nativeDate: CalendarDate = { calendar: cal.id, year: ym.year, monthCode: ym.monthCode, day: d };
     cells.push(
@@ -76,6 +82,15 @@ export function MonthView(p: Props) {
             {showOtherMonth ? ` ${other.monthName(o, locale, "short")}` : ""}
           </span>
         </div>
+        {hol.length > 0 && (
+          <ul className="holidays">
+            {hol.map((h) => (
+              <li key={h.id + h.epochDay} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto" title={locale === "he" ? h.he : h.en}>
+                {locale === "he" ? h.he : h.en}
+              </li>
+            ))}
+          </ul>
+        )}
         <ul className="chips">
           {occ.map((x) => {
             const ev = p.events.get(x.eventUid);
@@ -84,7 +99,8 @@ export function MonthView(p: Props) {
               <li key={x.eventUid + x.key}>
                 <button
                   type="button"
-                  className={`chip cal-${ev.start.calendar}`}
+                  className="chip"
+                  style={{ "--c": p.colors.get(ev.collectionId) ?? "var(--hebrew)" } as React.CSSProperties}
                   dir="auto"
                   title={`${ev.title} — ${describeRule(ev, locale)}${x.adjustment !== "none" ? ` (${t.occurrenceAdjusted})` : ""}`}
                   onClick={() => p.onEventClick(ev.uid, day)}

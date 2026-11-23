@@ -14,7 +14,24 @@
 import { getCalendar, isCalendarId } from "../calendars/registry";
 import type { CalendarDate, CalendarId, SkipPolicy } from "../calendars/types";
 
-export const SCHEMA_VERSION = 1 as const;
+export const SCHEMA_VERSION = 2 as const;
+
+/**
+ * A user calendar ("יומן"): a named, coloured collection of events with its own ICS feed.
+ * (JMAP for Calendars calls this object a "Calendar"; here "calendar" already means a
+ * calendar *system* such as hebrew/gregory, so the code calls it a collection.)
+ */
+export interface Collection {
+  id: string;
+  /** Empty for the default collection until renamed; the UI shows a localised default. */
+  name: string;
+  /** #rrggbb */
+  color: string;
+  created: string;
+}
+
+export const DEFAULT_COLLECTION_ID = "personal";
+export const COLLECTION_COLORS = ["#3949ab", "#00897b", "#e65100", "#c2185b", "#6d4c41", "#5e35b1", "#2e7d32", "#0277bd"];
 
 export type Frequency = "daily" | "weekly" | "monthly" | "yearly";
 export const FREQUENCIES: Frequency[] = ["daily", "weekly", "monthly", "yearly"];
@@ -44,6 +61,8 @@ export interface UCEvent {
   showWithoutTime: true;
   start: CalendarDate;
   recurrenceRules?: RecurrenceRule[];
+  /** The user calendar (collection) this event belongs to. */
+  collectionId: string;
   /** RFC 3339 UTC instants. */
   created: string;
   updated: string;
@@ -53,6 +72,7 @@ export interface UCEvent {
 
 export interface EventStoreDocument {
   schemaVersion: typeof SCHEMA_VERSION;
+  collections: Collection[];
   events: UCEvent[];
 }
 
@@ -62,6 +82,8 @@ export interface EventInput {
   description?: string;
   start: CalendarDate;
   recurrenceRules?: RecurrenceRule[];
+  /** Defaults to the first collection; existence is checked against the store. */
+  collectionId?: string;
 }
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
@@ -114,8 +136,14 @@ export function validateEventInput(raw: unknown): ValidationResult<EventInput> {
     }
   }
 
+  let collectionId: string | undefined;
+  if (o.collectionId !== undefined && o.collectionId !== null && o.collectionId !== "") {
+    if (typeof o.collectionId !== "string" || !UID_PATTERN.test(o.collectionId)) errors.push("collectionId is invalid");
+    else collectionId = o.collectionId;
+  }
+
   if (errors.length) return { ok: false, errors };
-  return { ok: true, value: { title, description, start: start!, recurrenceRules } };
+  return { ok: true, value: { title, description, start: start!, recurrenceRules, ...(collectionId ? { collectionId } : {}) } };
 }
 
 export function createEvent(input: EventInput, uid: string, now: Date = new Date()): UCEvent {
@@ -128,6 +156,7 @@ export function createEvent(input: EventInput, uid: string, now: Date = new Date
     showWithoutTime: true,
     start: { ...input.start },
     ...(input.recurrenceRules?.length ? { recurrenceRules: input.recurrenceRules } : {}),
+    collectionId: input.collectionId ?? DEFAULT_COLLECTION_ID,
     created: ts,
     updated: ts,
     sequence: 0,
@@ -139,16 +168,43 @@ export function updateEvent(prev: UCEvent, input: EventInput, now: Date = new Da
   return { ...next, created: prev.created, sequence: prev.sequence + 1 };
 }
 
-export function emptyDocument(): EventStoreDocument {
-  return { schemaVersion: SCHEMA_VERSION, events: [] };
+export function defaultCollection(now: Date = new Date()): Collection {
+  return { id: DEFAULT_COLLECTION_ID, name: "", color: COLLECTION_COLORS[0], created: now.toISOString() };
 }
 
-/** Light structural check when loading persisted data. */
+export function emptyDocument(): EventStoreDocument {
+  return { schemaVersion: SCHEMA_VERSION, collections: [defaultCollection()], events: [] };
+}
+
+/**
+ * Structural check when loading persisted data, with migration:
+ * v1 (no collections) → v2: every event goes into the default collection.
+ */
 export function parseDocument(raw: unknown): EventStoreDocument {
-  const o = raw as Partial<EventStoreDocument> | null;
-  if (!o || o.schemaVersion !== SCHEMA_VERSION || !Array.isArray(o.events))
-    throw new Error("Unrecognised event store document (expected schemaVersion 1)");
+  const o = raw as { schemaVersion?: number; events?: UCEvent[]; collections?: Collection[] } | null;
+  if (!o || !Array.isArray(o.events)) throw new Error("Unrecognised event store document");
+  if (o.schemaVersion === 1) {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      collections: [defaultCollection()],
+      events: o.events.map((e) => ({ ...e, collectionId: DEFAULT_COLLECTION_ID })),
+    };
+  }
+  if (o.schemaVersion !== SCHEMA_VERSION || !Array.isArray(o.collections) || o.collections.length === 0)
+    throw new Error("Unrecognised event store document (expected schemaVersion 1 or 2)");
   return o as EventStoreDocument;
+}
+
+export interface CollectionInput { name: string; color: string }
+
+export function validateCollectionInput(raw: unknown): ValidationResult<CollectionInput> {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  const errors: string[] = [];
+  const name = typeof o.name === "string" ? o.name.trim() : "";
+  if (name.length > 60) errors.push("name must be at most 60 characters");
+  const color = typeof o.color === "string" ? o.color : "";
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) errors.push("color must be #rrggbb");
+  return errors.length ? { ok: false, errors } : { ok: true, value: { name, color } };
 }
 
 export const UID_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;

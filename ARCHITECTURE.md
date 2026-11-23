@@ -265,6 +265,31 @@ change it after people have subscribed, or every occurrence will appear as new.
 
 ---
 
+## 5b. Calendars (collections) and built-in holidays
+
+**User calendars.** Schema v2 adds `collections: [{ id, name, color, created }]`, and each event has a
+`collectionId`. JMAP for Calendars calls these objects "Calendars"; the code says *collection* because
+"calendar" already means a calendar *system* (hebrew/gregory). Older v1 documents are migrated on load
+(every event goes into the default `personal` collection). Show/hide is a per-browser display preference.
+Each collection has its own feed (`/calendar.ics?collection=<id>`); `/calendar.ics` serves all of them.
+
+**Built-in holidays** (`src/core/holidays/`) are a read-only, rule-based layer, never stored:
+- Each holiday is a Hebrew date (month code + day, Adar as `M06`, Adar I as `M05L`), an optional day
+  offset (Chanukah), an optional region (Israel / diaspora), a `since` year, and an optional **named shift
+  rule**: fasts on Shabbat postponed to Sunday (Tzom Gedaliah, 17 Tammuz, Tish'a B'Av) or moved back to
+  Thursday (Ta'anit Esther, Ta'anit Bechorot, also the Sigd); Yom HaShoah (Fri→Thu, Sun→Mon); Yom
+  HaAtzma'ut (Fri/Sat→Thu, Mon→Tue from 5764) with Yom HaZikaron the day before; Leil Selichot.
+  Rosh Chodesh is derived from month lengths.
+- Categories: festivals (`major`), `minor`, `fast`, `modern` (national days), `roshchodesh`.
+- **Verification:** `tests/holidays.test.ts` compares every holiday on every day of 5710–5899 with Hebcal
+  (`@hebcal/core`, a dev-only dependency), in Israel and the diaspora. They match exactly.
+- Not included yet: special Shabbatot, parashat hashavua, Omer count, candle-lighting times (need a
+  location), and Israeli memorial days other than the main national days.
+- `HOLIDAY_SETS` in `registry.ts` is where other sets (Islamic, Christian, national) would be added.
+
+**Export** (`src/ui/export.ts`) covers only user events: `.ics` (five years back to ten ahead, daily and
+weekly as RRULE) and a lossless `.json` backup in the store schema.
+
 ## 6. Persistence
 
 The store is one small JSON document (`{ schemaVersion: 1, events: [...] }`), read and written whole.
@@ -318,7 +343,8 @@ edit. Two optional shared secrets cover the single-user case:
 
 ## 8. Limitations and future extensions
 
-**Known limitations of v1**
+**Known limitations**
+- No import yet for the `.json` backup (export only).
 - The display mode is stored per browser, not per user.
 - All-day events only. There are no timed events and no event time zones.
 - Recurrence by day, week, month or year with an interval; no `until`/`count`, no "nth weekday of the month", and no exceptions (EXDATE).

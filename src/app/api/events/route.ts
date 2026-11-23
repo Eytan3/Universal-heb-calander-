@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createEvent, validateEventInput } from "@/core/events/schema";
+import { validateEventInput } from "@/core/events/schema";
+import { addEvent } from "@/core/events/store";
 import { checkEditToken, errorResponse, json } from "@/server/http";
 import { getStore, mutate } from "@/server/storage";
 
@@ -21,12 +22,7 @@ export async function POST(req: Request) {
   const v = validateEventInput(await req.json().catch(() => null));
   if (!v.ok) return json({ errors: v.errors }, 400);
   try {
-    const event = await mutate((doc) => {
-      const e = createEvent(v.value, randomUUID());
-      doc.events.push(e);
-      return e;
-    });
-    return json(event, 201);
+    return json(await mutate((doc) => addEvent(doc, v.value, randomUUID())), 201);
   } catch (e) {
     return errorResponse(e);
   }

@@ -4,7 +4,10 @@ import { getCalendar, gregorian, hebrew } from "@/core/calendars/registry";
 import type { CalendarDate, CalendarId, Locale, YearMonth } from "@/core/calendars/types";
 import { byDay, expandAll } from "@/core/events/expand";
 import { describeRule } from "@/core/events/describe";
-import type { EventInput, UCEvent } from "@/core/events/schema";
+import { emptyDocument, type EventInput, type EventStoreDocument, type UCEvent } from "@/core/events/schema";
+import { jewishHolidays, type HolidayOccurrence } from "@/core/holidays/registry";
+import { CalendarsPanel, displayName } from "./CalendarsPanel";
+import { readViewPrefs, saveViewPrefs, DEFAULT_VIEW, type ViewPrefs } from "./viewPrefs";
 import { todayEpochDay, type EpochDay } from "@/core/time/epochDay";
 import { EventEditor } from "./EventEditor";
 import { STRINGS } from "./i18n";
@@ -27,7 +30,8 @@ export default function App() {
   const [locale, setLocale] = useState<Locale>("en");
   const [today, setToday] = useState<EpochDay | null>(null);
   const [repo, setRepo] = useState<EventRepository | null>(null);
-  const [events, setEvents] = useState<UCEvent[]>([]);
+  const [doc, setDoc] = useState<EventStoreDocument>(() => emptyDocument());
+  const [view, setView] = useState<ViewPrefs>(DEFAULT_VIEW);
   /** Display mode: the main calendar of the single month view; the other appears as secondary labels. */
   const [primary, setPrimary] = useState<CalendarId>("hebrew");
   const [ym, setYm] = useState<YearMonth | null>(null);
@@ -53,8 +57,11 @@ export default function App() {
     setPrimary(mode);
     setAddCalendar(mode);
     setYm(ymOf(mode, d));
+    setView(readViewPrefs());
     chooseRepository().then(setRepo);
   }, []);
+
+  const updateView = (v: ViewPrefs) => { setView(v); saveViewPrefs(v); };
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -66,7 +73,7 @@ export default function App() {
 
   const reload = useCallback(async () => {
     if (!repo) return;
-    try { setEvents(await repo.list()); setLoadError(null); } catch (e) { setLoadError((e as Error).message); }
+    try { setDoc(await repo.load()); setLoadError(null); } catch (e) { setLoadError((e as Error).message); }
   }, [repo]);
   useEffect(() => { reload(); }, [reload]);
 
@@ -80,7 +87,18 @@ export default function App() {
     }
   }, [reload]);
 
-  const eventsByUid = useMemo(() => new Map(events.map((e) => [e.uid, e])), [events]);
+  // Hidden calendars are filtered for display only; nothing is deleted.
+  const hidden = useMemo(() => new Set(view.hiddenCollections), [view.hiddenCollections]);
+  const events = useMemo(() => doc.events.filter((e) => !hidden.has(e.collectionId)), [doc.events, hidden]);
+  const eventsByUid = useMemo(() => new Map(doc.events.map((e) => [e.uid, e])), [doc.events]);
+  const colors = useMemo(() => new Map(doc.collections.map((c) => [c.id, c.color])), [doc.collections]);
+  const holidayOpts = view.holidays.enabled ? view.holidays : { ...view.holidays, categories: [] };
+  const holidaysIn = useCallback((start: EpochDay, end: EpochDay) => {
+    const m = new Map<EpochDay, HolidayOccurrence[]>();
+    for (const h of jewishHolidays.occurrences({ start, end }, holidayOpts)) m.set(h.epochDay, [...(m.get(h.epochDay) ?? []), h]);
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(holidayOpts)]);
 
   // Expand over the visible month (in whichever calendar is primary), then index by absolute day.
   const occurrences = useMemo(() => {
@@ -88,9 +106,15 @@ export default function App() {
     const first = getCalendar(primary).toEpochDay({ ...ym, day: 1 });
     return byDay(expandAll(events, { start: first - 1, end: first + 32 }));
   }, [events, ym, primary]);
+  const monthHolidays = useMemo(() => {
+    if (!ym) return new Map<EpochDay, HolidayOccurrence[]>();
+    const first = getCalendar(primary).toEpochDay({ ...ym, day: 1 });
+    return holidaysIn(first - 1, first + 32);
+  }, [holidaysIn, ym, primary]);
 
   // The day list (like Apple Calendar's list under the month): occurrences on the selected day.
   const dayEvents = useMemo(() => (selected === null ? [] : expandAll(events, { start: selected, end: selected + 1 })), [events, selected]);
+  const dayHolidays = selected === null ? [] : monthHolidays.get(selected) ?? holidaysIn(selected, selected + 1).get(selected) ?? [];
 
   if (today === null || !ym) return <main className="loading">{t.loading}</main>;
 
@@ -142,8 +166,18 @@ export default function App() {
         </form>
       )}
 
+      <div className="layout">
+      <CalendarsPanel t={t} locale={locale} doc={doc} hidden={hidden}
+        onToggle={(id) => updateView({ ...view, hiddenCollections: hidden.has(id) ? view.hiddenCollections.filter((x) => x !== id) : [...view.hiddenCollections, id] })}
+        holidays={view.holidays} onHolidays={(h) => updateView({ ...view, holidays: h })}
+        serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()}
+        onCreate={(name, color) => guarded(() => repo!.createCollection({ name, color }))}
+        onUpdate={(id, name, color) => guarded(() => repo!.updateCollection(id, { name, color }))}
+        onDelete={(id) => guarded(() => repo!.removeCollection(id))} />
+      <div className="main-col">
       <MonthView key={primary} cal={mainCal} other={otherCal} ym={ym} onNavigate={setYm} locale={locale} t={t} today={today}
-        selected={selected} occurrences={occurrences} events={eventsByUid} onDayClick={selectDay} onDayDoubleClick={addOnDay} onEventClick={openEvent} />
+        selected={selected} occurrences={occurrences} events={eventsByUid} holidays={monthHolidays} colors={colors}
+        onDayClick={selectDay} onDayDoubleClick={addOnDay} onEventClick={openEvent} />
 
       {selected !== null && (() => {
         const g = gregorian.fromEpochDay(selected);
@@ -161,16 +195,24 @@ export default function App() {
                 + {t.addOnDay}
               </button>
             </header>
-            {dayEvents.length === 0 ? <p className="muted">{t.noEventsDay}</p> : (
+            {dayHolidays.length > 0 && (
+              <ul className="day-holidays">
+                {dayHolidays.map((h) => (
+                  <li key={h.id} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto">{locale === "he" ? h.he : h.en}</li>
+                ))}
+              </ul>
+            )}
+            {dayEvents.length === 0 ? (dayHolidays.length === 0 && <p className="muted">{t.noEventsDay}</p>) : (
               <ul className="upcoming">
                 {dayEvents.map((o) => {
                   const ev = eventsByUid.get(o.eventUid)!;
                   const native = getCalendar(o.native.calendar);
                   return (
                     <li key={o.eventUid + o.key}>
-                      <button type="button" className={`up-item cal-${ev.start.calendar}`} onClick={() => setEditor({ existing: ev, date: ev.start })}>
+                      <button type="button" className="up-item" style={{ "--c": colors.get(ev.collectionId) } as React.CSSProperties}
+                        onClick={() => setEditor({ existing: ev, date: ev.start })}>
                         <span className="up-title" dir="auto">{ev.title}</span>
-                        <span className="up-when">{native.calendarName(locale)}</span>
+                        <span className="up-when">{(() => { const c = doc.collections.find((x) => x.id === ev.collectionId); return c ? displayName(c, t) : ""; })()} · {native.calendarName(locale)}</span>
                         <span className="up-dates" dir="auto">
                           {describeRule(ev, locale)}
                           {o.adjustment !== "none" && ` · ${t.occurrenceAdjusted}`}
@@ -186,11 +228,15 @@ export default function App() {
           </section>
         );
       })()}
+      </div>
+      </div>
 
       {editor && repo && (
         <EventEditor
           key={editor.existing?.uid ?? `new-${editor.date.calendar}-${editor.date.year}-${editor.date.monthCode}-${editor.date.day}`}
           locale={locale} t={t} today={today} existing={editor.existing} initialDate={editor.date}
+          collections={doc.collections.map((c) => ({ id: c.id, name: displayName(c, t), color: c.color }))}
+          defaultCollectionId={doc.collections.find((c) => !hidden.has(c.id))?.id ?? doc.collections[0].id}
           onClose={() => setEditor(null)}
           onSave={(input: EventInput) => guarded(() => (editor.existing ? repo.update(editor.existing.uid, input) : repo.create(input)))}
           onDelete={editor.existing ? () => guarded(() => repo.remove(editor.existing!.uid)) : undefined}

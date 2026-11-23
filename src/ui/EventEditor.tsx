@@ -17,6 +17,8 @@ interface Props {
   onSave: (input: EventInput) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
+  collections: { id: string; name: string; color: string }[];
+  defaultCollectionId: string;
 }
 
 export function EventEditor(p: Props) {
@@ -30,6 +32,7 @@ export function EventEditor(p: Props) {
   const [frequency, setFrequency] = useState<Frequency | "none">(ex ? exRule?.frequency ?? "none" : "yearly");
   const [interval, setInterval_] = useState<number>(exRule?.interval ?? 1);
   const [skip, setSkip] = useState<SkipPolicy>(ex?.recurrenceRules?.[0]?.skip ?? "forward");
+  const [collectionId, setCollectionId] = useState(ex?.collectionId ?? p.defaultCollectionId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -56,6 +59,7 @@ export function EventEditor(p: Props) {
     title,
     description: description || undefined,
     start: date,
+    collectionId,
     recurrenceRules: frequency !== "none"
       ? [{ "@type": "RecurrenceRule", frequency, interval, rscale: date.calendar, ...(frequency === "monthly" || frequency === "yearly" ? { skip } : {}) }]
       : undefined,
@@ -108,6 +112,16 @@ export function EventEditor(p: Props) {
           <span>{t.title}</span>
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.titlePlaceholder} maxLength={200} required />
         </label>
+
+        {p.collections.length > 1 && (
+          <label className="field">
+            <span>{t.calendarField}</span>
+            <select value={collectionId} onChange={(e) => setCollectionId(e.target.value)}
+              style={{ borderInlineStart: `6px solid ${p.collections.find((c) => c.id === collectionId)?.color}` }}>
+              {p.collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        )}
 
         <fieldset className="field">
           <legend>{t.calendar}</legend>

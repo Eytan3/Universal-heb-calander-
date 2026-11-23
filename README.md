@@ -11,7 +11,12 @@ and its occurrences appear on the correct day in every calendar view and in an A
 - Events are added from either calendar and can repeat **daily, weekly, monthly or yearly, every N units**.
   Monthly and yearly rules follow the event's own calendar (a Hebrew monthly event follows Hebrew months),
   with RFC 7529 handling for dates that don't exist in a given month or year.
-- A JSON event store (documented schema) on disk locally, or in Upstash Redis on Vercel.
+- **Multiple calendars** ("Personal", "Work", …) in an Apple Calendar-style side panel: colour, show/hide,
+  a separate Apple Calendar link for each, and export of your own events as `.ics` or a lossless `.json` backup.
+- **Built-in Jewish holidays** (festivals, minor holidays, fasts, national days, Rosh Chodesh; Israel or
+  diaspora), defined as rules inside the app — no runtime holiday library. Switch them off entirely for a
+  clean calendar, or choose categories. A separate `/holidays.ics` feed is available.
+- A JSON event store (documented schema) on disk locally, or in Redis on Vercel.
 - A live ICS feed (`/calendar.ics`) with stable UIDs, for Apple Calendar subscriptions.
 - English (LTR) and Hebrew (RTL) interface; responsive. Language, the feed link, storage status and the
   edit token are in **Settings**.
@@ -58,6 +63,11 @@ npm start              # http://localhost:3000
   the 31st, Adar I, 29 February), the editor asks what to do: move forward (default), move back, or skip.
 - **Edit or delete:** click an event in the month or in the day list.
 - **Navigate:** use ‹ › to move between months, or pick a month or year.
+- **Calendars panel (side):** tick a calendar to show or hide it; **⋯** renames it, changes its colour,
+  copies its Apple Calendar link, exports it (`.ics` / `.json`) or deletes it (with its events, after a
+  second click). **+ New calendar** adds one. *Export all my events* never includes built-in holidays.
+- **Holidays:** under *Built-in*, untick *Jewish holidays* for a clean calendar; **⋯** chooses Israel or
+  diaspora and which categories to show, and copies a holidays-only Apple Calendar link.
 - **Settings (⚙):** interface language (עברית / English), appearance (automatic, light or dark), the
   Apple Calendar subscription link, storage status, and the edit token if the server requires one.
 
@@ -74,7 +84,7 @@ It's useful for trying the UI or sharing a demo. Open the file directly, or host
 ## Tests
 
 ```bash
-npm test               # 48 tests: conversions vs ICU, recurrence, ICS, storage
+npm test               # 56 tests (incl. holidays vs Hebcal, 5710–5899): conversions vs ICU, recurrence, ICS, storage
 npm run typecheck
 ```
 
@@ -155,7 +165,10 @@ tests/               vitest suites
 | PUT | `/api/events/:uid` | `EventInput` | Increments `sequence` |
 | DELETE | `/api/events/:uid` | | 204 |
 | GET | `/api/status` | | storage kind, whether tokens are required |
-| GET | `/calendar.ics` | | `?token=` if `UC_FEED_TOKEN` is set |
+| POST | `/api/collections` | `{ name, color }` | create a calendar |
+| PUT / DELETE | `/api/collections/:id` | `{ name, color }` | rename/recolour; delete removes its events |
+| GET | `/calendar.ics` | | all your events; `?collection=<id>` for one calendar; `&download=1` as a file |
+| GET | `/holidays.ics` | | `?region=il\|diaspora&categories=major,minor,fast,modern,roshchodesh&lang=he\|en` |
 
 `EventInput`:
 ```json
