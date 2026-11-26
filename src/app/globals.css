@@ -384,3 +384,14 @@ label.opt.disabled { opacity: 0.6; cursor: default; }
 body { caret-color: transparent; }
 input, textarea, select, [contenteditable] { caret-color: auto; }
 .grid { -webkit-user-select: none; user-select: none; }
+
+/* ── Home-screen app (iPhone "Add to Home Screen") ──
+   The status bar is drawn over the page, so the sticky top bar starts below it (0 in a normal browser tab). */
+.top { padding-top: calc(0.7rem + env(safe-area-inset-top)); }
+@media (max-width: 600px) { .top { padding-top: calc(0.55rem + env(safe-area-inset-top)); } }
+.login-page { padding-top: calc(1.25rem + env(safe-area-inset-top)); }
+@media (display-mode: standalone) {
+  /* Feel like an app: no rubber-band highlight on taps, no long-press callouts on controls */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .cell-hit { -webkit-touch-callout: none; }
+}

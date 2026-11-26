@@ -28,5 +28,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Everything except Next's static assets and the app icon.
-  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico).*)"],
+  // Icons and the web-app manifest stay public: the iPhone fetches them without the login cookie.
+  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|apple-icon.png|manifest.webmanifest|icons/).*)"],
 };

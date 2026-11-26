@@ -134,6 +134,13 @@ Other → Add Subscribed Calendar**.
 
 All variables are listed in [`.env.example`](./.env.example).
 
+## Use it like an app (iPhone)
+
+Open the site in **Safari**, tap **Share** (the square with an arrow), then **Add to Home Screen** and **Add**.
+It opens full screen from its own icon, with no browser bars (web-app manifest + Apple web-app metadata,
+`src/app/manifest.ts`, `src/app/apple-icon.png`). The home-screen app keeps its own sign-in, so sign in once
+inside it. Icons and the manifest are public (the phone fetches them without the login cookie).
+
 ## Security notes
 
 **Owner login (user + password).** Set `UC_USER` and `UC_PASSWORD` in the hosting environment

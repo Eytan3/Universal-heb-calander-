@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b5c"/><stop offset="1" stop-color="#e03c2f"/></linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f3f1ee"/></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- a calendar page -->
+  <rect x="212" y="236" width="600" height="572" rx="96" fill="url(#page)"/>
+  <path d="M212 332a96 96 0 0 1 96-96h408a96 96 0 0 1 96 96v44H212z" fill="#1d1c1a" opacity="0.9"/>
+  <rect x="352" y="186" width="44" height="120" rx="22" fill="#1d1c1a"/>
+  <rect x="628" y="186" width="44" height="120" rx="22" fill="#1d1c1a"/>
+  <!-- two calendars on one page: the moon (Hebrew, lunisolar) and the sun (Gregorian, solar) -->
+  <path d="M470 474a124 124 0 1 0 0 236a100 100 0 1 1 0-236z" fill="#3949ab"/>
+  <circle cx="618" cy="592" r="82" fill="#ff5a4e"/>
+</svg>
