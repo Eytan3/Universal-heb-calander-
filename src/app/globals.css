@@ -301,10 +301,14 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   /* A solid toolbar band (not floating buttons): content scrolls behind it and ends above it, so it never covers events */
   .bottom-bar { display: flex; position: fixed; inset-inline: 0; bottom: 0; z-index: 10; justify-content: space-between; align-items: center; gap: 0.5rem;
     padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-    border-top: 0.5px solid var(--glass-line); }
-  /* Room for the toolbar (2.75rem buttons + 1rem padding) and the home indicator */
-  .app { padding-bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+    background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+  /* Buffer: content softly fades into the page colour just above the toolbar, instead of meeting a hard edge */
+  .bottom-bar::before { content: ""; position: absolute; inset-inline: 0; bottom: 100%; height: var(--toolbar-fade); pointer-events: none;
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 92%, transparent)); }
+  /* Bottom buffer, on the 4px grid: toolbar (44px buttons + 16px padding = 60px) + fade (24px) + air (12px).
+     The last event ends 36px above the buttons: clear of the fade (so never dimmed) with 12px of air. */
+  :root { --toolbar-h: 3.75rem; --toolbar-fade: 1.5rem; --toolbar-air: 0.75rem; }
+  .app { padding-bottom: calc(var(--toolbar-h) + var(--toolbar-fade) + var(--toolbar-air) + env(safe-area-inset-bottom)); }
   .bottom-bar .add-fab { width: 2.75rem; height: 2.75rem; }
   .bottom-bar .glass-btn { height: 2.75rem; padding: 0 1.1rem; color: var(--accent); }
   .bottom-bar .glass-btn.on { color: var(--ink); }
