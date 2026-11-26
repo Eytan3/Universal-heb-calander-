@@ -6,8 +6,9 @@ export const metadata: Metadata = {
   title: "עִתִּים · Ittim",
   description: "Calendar-neutral scheduling: Hebrew and Gregorian as first-class calendars.",
   applicationName: "עִתִּים",
-  // Home-screen app on iPhone: full screen, own name, the status bar drawn over the app's own top bar.
-  appleWebApp: { capable: true, title: "עִתִּים", statusBarStyle: "black-translucent" },
+  // Home-screen app on iPhone: full screen and its own name. The status bar is a solid band in the app's
+  // background colour (theme-color) above the app — not drawn over it, which made iOS blur the top bar.
+  appleWebApp: { capable: true, title: "עִתִּים", statusBarStyle: "default" },
   formatDetection: { telephone: false, date: false, address: false, email: false },
 };
 export const viewport: Viewport = {

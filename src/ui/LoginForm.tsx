@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { STRINGS } from "./i18n";
+import { syncThemeColor } from "./theme";
 import type { Locale } from "@/core/calendars/types";
 
 /** Only same-site paths may be used as the post-login destination (no open redirects). */
@@ -17,6 +18,7 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const t = STRINGS[locale];
 
+  useEffect(() => syncThemeColor(), []);
   useEffect(() => {
     let saved: string | null = null;
     try { saved = localStorage.getItem("universal-calendar:locale"); } catch { /* ignore */ }

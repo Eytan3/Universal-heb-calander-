@@ -12,10 +12,22 @@ export function readTheme(): Theme {
   }
 }
 
+/** Page background per appearance; also the colour of the iPhone status bar in the home-screen app. */
+const BG = { light: "#ffffff", dark: "#000000" } as const;
+
+/** Keep <meta name="theme-color"> in step with the chosen appearance (not only the system one).
+ *  Called after hydration (React renders the head's metadata itself, so earlier changes would be lost). */
+export function syncThemeColor(theme: Theme = readTheme()) {
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((m) => {
+    m.content = theme === "system" ? (m.media.includes("dark") ? BG.dark : BG.light) : BG[theme];
+  });
+}
+
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === "system") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", theme);
+  syncThemeColor(theme);
   try { localStorage.setItem(KEY, theme); } catch { /* ignore */ }
 }
 
