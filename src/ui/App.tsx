@@ -266,6 +266,22 @@ export default function App() {
   const mainCal = getCalendar(primary);
   const otherCal = primary === "hebrew" ? gregorian : hebrew;
 
+  // The day to jump back to (same rule as the month view's button): the selected day when it is outside the
+  // displayed month, else the place the user was at before pressing Today.
+  const phoneJump = (() => {
+    const first = mainCal.toEpochDay({ year: ym.year, monthCode: ym.monthCode, day: 1 });
+    const len = mainCal.daysInMonth(ym.year, ym.monthCode) ?? 0;
+    const outside = selected !== null && (selected < first || selected >= first + len);
+    const day = outside ? selected! : returnTo !== null && returnTo !== selected ? returnTo : null;
+    if (day === null) return null;
+    const d = mainCal.fromEpochDay(day);
+    const full = mainCal.formatDate(d, locale);
+    return {
+      short: `${mainCal.formatDayNumber(d.day, locale)} ${mainCal.monthName({ year: d.year, monthCode: d.monthCode }, locale)}`,
+      label: outside ? `${t.goToSelected}: ${full}` : t.backTo(full),
+      go: outside ? () => setYm(ymOf(primary, day)) : goBack,
+    };
+  })();
   return (
     <main className="app">
       <header className="top">
@@ -383,7 +399,7 @@ export default function App() {
                 })}
               </ul>
             )}
-            <p className="muted small">{readOnly ? t.login.viewOnly : t.dayHint}</p>
+            <p className={`muted small${readOnly ? "" : " day-hint"}`}>{readOnly ? t.login.viewOnly : t.dayHint}</p>
           </section>
         );
       })()}
@@ -391,7 +407,15 @@ export default function App() {
       </div>
 
       <nav className="bottom-bar" aria-label={t.calendars}>
-        <button type="button" className="glass-btn" onClick={goToday}>{t.today}</button>
+        <span className="bar-start">
+          <button type="button" className="glass-btn" onClick={goToday}>{t.today}</button>
+          {/* Phone: "back to a day" lives here, in the fixed toolbar, so the calendar never shifts. */}
+          {phoneJump && (
+            <button type="button" className="glass-btn jump-btn" onClick={phoneJump.go} aria-label={phoneJump.label} title={phoneJump.label}>
+              <span aria-hidden>↩</span> {phoneJump.short}
+            </button>
+          )}
+        </span>
         <button type="button" className={`glass-btn${sidebarOpen ? " on" : ""}`} onClick={toggleSidebar} aria-expanded={sidebarOpen}>{t.calendars}</button>
         {readOnly ? (
           <button type="button" className="glass-btn" onClick={goToLogin} aria-label={t.login.signInToEdit}>

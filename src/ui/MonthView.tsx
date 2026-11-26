@@ -4,6 +4,7 @@
  * month structure (its first day, its length) — never from Gregorian boundaries.
  * Each cell is an absolute EpochDay, so events and selection line up across views.
  */
+import { useState } from "react";
 import { YearInput } from "./YearInput";
 import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/calendars/types";
 import type { Occurrence } from "@/core/events/expand";
@@ -44,6 +45,7 @@ interface Props {
 const WEEK_SUN = Array.from({ length: 7 }, (_, i) => Date.UTC(2023, 0, 1 + i)); // 2023-01-01 was a Sunday
 
 export function MonthView(p: Props) {
+  const [pickersOpen, setPickersOpen] = useState(false);
   const { cal, other, ym, locale, t } = p;
   const months = cal.monthsInYear(ym.year);
   const daysInMonth = cal.daysInMonth(ym.year, ym.monthCode)!;
@@ -82,7 +84,12 @@ export function MonthView(p: Props) {
     const showOtherMonth = o.day === 1 || d === 1;
     const occ = p.occurrences.get(day) ?? [];
     const hol = p.holidays.get(day) ?? [];
-    const cls = ["cell", day === p.today && "today", day === p.selected && "selected", weekdayOf(day) === 6 && "shabbat"].filter(Boolean).join(" ");
+    const cls = ["cell", day === p.today && "today", day === p.selected && "selected", weekdayOf(day) === 6 && "shabbat",
+      hol.some((h) => h.yomTov) && "yomtov-day"].filter(Boolean).join(" ");
+    // Phone (compact) view: one rounded strip under the day, split into segments — the holiday colour first,
+    // then one segment per event in its calendar's colour (at most four).
+    const dotColors = [...(hol.length ? ["var(--holiday)"] : []),
+      ...occ.map((x) => p.colors.get(p.events.get(x.eventUid)?.collectionId ?? "") ?? "var(--hebrew)")].slice(0, 4);
     const nativeDate: CalendarDate = { calendar: cal.id, year: ym.year, monthCode: ym.monthCode, day: d };
     cells.push(
       <div key={day} className={cls}>
@@ -104,6 +111,11 @@ export function MonthView(p: Props) {
             {showOtherMonth ? ` ${other.monthName(o, locale, "short")}` : ""}
           </span>
         </div>
+        {dotColors.length > 0 && (
+          <span className="daybar" aria-hidden>
+            {dotColors.map((c, i) => <i key={i} style={{ "--c": c } as React.CSSProperties} />)}
+          </span>
+        )}
         {hol.length > 0 && (
           <ul className="holidays">
             {hol.map((h) => (
@@ -141,10 +153,14 @@ export function MonthView(p: Props) {
 
   return (
     <section className={`month cal-${cal.id}`} aria-label={cal.calendarName(locale)}>
-      <header className="month-head">
+      <header className={`month-head${pickersOpen ? " pickers-open" : ""}`}>
         <div className="month-title-row">
           <h2>
-            {cal.monthName(ym, locale)} {cal.formatYear(ym.year, locale)}
+            {/* On phones the month/year pickers are tucked away (like iOS); tapping the title shows them. */}
+            <button type="button" className="title-btn" aria-expanded={pickersOpen} onClick={() => setPickersOpen((v) => !v)}>
+              {cal.monthName(ym, locale)} {cal.formatYear(ym.year, locale)}
+              <svg className="title-chev" viewBox="0 0 16 16" aria-hidden><path d="M4 6l4 4 4-4" /></svg>
+            </button>
           </h2>
         </div>
           {/* One elongated pill for month navigation: ‹ Today › (mirrors automatically in RTL). */}
