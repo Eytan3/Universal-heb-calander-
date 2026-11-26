@@ -152,7 +152,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 .nav-arrow svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
 .nav-today { padding: 0 1.15rem; font-weight: 700; color: var(--accent); border-inline: 0.5px solid var(--line) !important; }
 [dir="rtl"] .flip { display: inline-block; transform: scaleX(-1); }
-.month-controls { grid-area: controls; justify-self: end; display: flex; gap: 0.35rem; align-items: center; }
+.month-controls { grid-area: controls; justify-self: end; display: flex; gap: 0.35rem; align-items: center; position: relative; }
+/* The jump-back button floats beside the pickers (out of the flow): desktop → toward the month pill,
+   phone → on the free side of the pickers' row. Never wraps, never moves anything. */
+.month-controls .goto-selected { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-end: calc(100% + 0.5rem);
+  max-width: 14rem; overflow: hidden; text-overflow: ellipsis; background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 0.38rem 0.75rem; border-radius: 999px; }
 .month-controls select, .month-controls input { border: 0; background: var(--fill); border-radius: 10px; padding: 0.38rem 0.55rem; font-weight: 700; }
 .year-input { width: 5.4rem; }
 .month-meta-row { grid-area: meta; display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 1.6rem; }
@@ -287,6 +291,7 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   .nav-today { display: none !important; } /* Today lives in the bottom bar on phones */
   .nav-arrow { width: 2.3rem; }
   .month-controls { justify-self: start; }
+  .month-controls .goto-selected { inset-inline-end: auto; inset-inline-start: calc(100% + 0.5rem); max-width: calc(100vw - 100% - 2rem); }
   .month-meta-row { flex-wrap: wrap; }
   .cell { min-height: 4.4rem; padding: 0.2rem 0.05rem; }
   .primary { min-width: 1.9rem; height: 1.9rem; font-size: 1.12rem; }

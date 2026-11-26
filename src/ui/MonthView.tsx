@@ -61,6 +61,17 @@ export function MonthView(p: Props) {
     p.onNavigate({ year: d.year, monthCode: d.monthCode });
   };
   const selectedOutside = p.selected !== null && (p.selected < first || p.selected > last);
+  /** A day to jump back to: the selected day when it is outside this month, else the place before "Today". */
+  const jumpDay = selectedOutside ? p.selected! : p.returnTo !== null && p.returnTo !== p.selected ? p.returnTo : null;
+  const jump = jumpDay === null ? null : (() => {
+    const d = cal.fromEpochDay(jumpDay);
+    const full = cal.formatDate(d, locale);
+    return {
+      short: `${cal.formatDayNumber(d.day, locale)} ${cal.monthName({ year: d.year, monthCode: d.monthCode }, locale)}${d.year !== ym.year ? ` ${cal.formatYear(d.year, locale)}` : ""}`,
+      full: selectedOutside ? `${t.goToSelected}: ${full}` : t.backTo(full),
+      go: selectedOutside ? () => goTo(jumpDay) : p.onReturn,
+    };
+  })();
   const isLeapCal = cal.id === "hebrew";
 
   const cells: React.ReactNode[] = [];
@@ -165,9 +176,15 @@ export function MonthView(p: Props) {
               p.onNavigate({ year: y, monthCode: code });
             }}
           />
+          {/* "Back to a day": beside the pickers, positioned out of the flow — it appears and disappears
+              without moving the pickers or pushing the grid down. Short label (day + month); full date in the tooltip. */}
+          {jump && (
+            <button type="button" className="goto-selected" onClick={jump.go} title={jump.full} aria-label={jump.full}>
+              <span aria-hidden>↩</span> {jump.short}
+            </button>
+          )}
         </div>
-        {/* Second line: month details, and "go to selected day" — kept out of the top row so the
-            month/year pickers never move. */}
+        {/* Second line: month details only (fixed height, so the grid never jumps). */}
         <div className="month-meta-row">
           <p className="month-meta">
             {t.days(daysInMonth)}
@@ -175,11 +192,6 @@ export function MonthView(p: Props) {
             {" · "}
             <span dir="auto">{span}</span>
           </p>
-          {selectedOutside ? (
-            <button type="button" className="goto-selected" onClick={() => goTo(p.selected!)}>{t.goToSelected} ↩</button>
-          ) : p.returnTo !== null && p.returnTo !== p.selected && (
-            <button type="button" className="goto-selected" onClick={p.onReturn}>{t.backTo(cal.formatDate(cal.fromEpochDay(p.returnTo), locale))} ↩</button>
-          )}
         </div>
       </header>
       <div className="grid" role="grid">
