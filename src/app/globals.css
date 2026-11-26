@@ -142,9 +142,8 @@ button:disabled { opacity: 0.45; cursor: default; }
   align-items: center; gap: 0.4rem 1rem; margin-bottom: 0.6rem; }
 .month-title-row { grid-area: title; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; min-width: 0; }
 .month-title-row h2 { font-size: 2.35rem; font-weight: 800; letter-spacing: -0.03em; }
-.cal-badge { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; color: var(--accent-c); background: color-mix(in srgb, var(--accent-c) 13%, transparent); align-self: center; }
-.month.cal-hebrew, .cal-badge.cal-hebrew { --accent-c: var(--hebrew); }
-.month.cal-gregory, .cal-badge.cal-gregory { --accent-c: var(--gregory); }
+.month.cal-hebrew { --accent-c: var(--hebrew); }
+.month.cal-gregory { --accent-c: var(--gregory); }
 .month-nav { grid-area: nav; justify-self: center; display: inline-flex; align-items: stretch; height: 2.3rem; border-radius: 999px; overflow: hidden;
   border: 0.5px solid var(--glass-line); background: var(--glass); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); box-shadow: var(--glass-shadow); }
 .month-nav button { border: 0; background: transparent; display: grid; place-items: center; }

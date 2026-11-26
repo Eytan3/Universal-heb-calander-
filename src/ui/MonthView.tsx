@@ -132,7 +132,6 @@ export function MonthView(p: Props) {
     <section className={`month cal-${cal.id}`} aria-label={cal.calendarName(locale)}>
       <header className="month-head">
         <div className="month-title-row">
-          <span className={`cal-badge cal-${cal.id}`}>{cal.calendarName(locale)}</span>
           <h2>
             {cal.monthName(ym, locale)} {cal.formatYear(ym.year, locale)}
           </h2>
