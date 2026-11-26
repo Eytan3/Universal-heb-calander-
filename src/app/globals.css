@@ -416,7 +416,10 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 @media (max-width: 600px) {
   html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   /* Pinned to the screen: Safari cannot drag or bounce the page as a whole */
-  .app { position: fixed; inset: 0; height: auto; display: flex; flex-direction: column; padding-bottom: 0; }
+  .app { position: fixed; inset: 0; height: auto; max-width: none; display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden; }
+  html, body { overflow-x: hidden; }
+  /* Full width, always: nothing may be narrower or offset (iPhone Safari) */
+  .layout, .main-col, .main-col > .month, .month-head, .weekdays, .grid-wrap, .grid { width: 100%; max-width: none; margin-inline: 0; box-sizing: border-box; }
   .app > .top, .app > .banner { flex: none; }
   .layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .main-col { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
@@ -450,8 +453,11 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .grid > .cell { box-shadow: inset 0 0.5px 0 var(--line); }
   .grid > .cell.pad { box-shadow: none; }
   /* Toolbar: Today (+ "back to…") at the start, Calendars, then + */
-  .bar-start { display: flex; gap: 0.5rem; align-items: center; min-width: 0; }
-  .jump-btn { display: inline-flex; align-items: center; gap: 0.3rem; max-width: 9.5rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* The toolbar can never be wider than the screen: the "back to" button gives way first */
+  .bottom-bar { overflow: hidden; }
+  .bottom-bar > * { flex-shrink: 0; }
+  .bar-start { display: flex; gap: 0.4rem; align-items: center; min-width: 0; flex-shrink: 1; }
+  .jump-btn { display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; max-width: 8.5rem; flex-shrink: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 0.8rem !important; }
   /* Day list: roomy rows */
   .up-title { font-size: 1.12rem; }
   /* A festival day reads at a glance: its number takes the holiday colour (not on today / the selected day) */
@@ -469,7 +475,8 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 
 /* ── Month swipe (touch): the grid takes vertical drags itself; taps still work ── */
 @media (max-width: 600px) {
-  .grid-wrap { touch-action: pan-x pinch-zoom; }
+  /* The days take touch drags themselves (month swipe); the browser never pans the page sideways */
+  .grid-wrap { touch-action: none; }
   .grid { will-change: transform; }
   .grid:not(.dragging) { transition: transform 0.25s cubic-bezier(.2,.8,.2,1), opacity 0.25s; }
   .grid.slide-next { animation: month-in-next 0.3s cubic-bezier(.2,.8,.2,1); }
