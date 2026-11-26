@@ -16,6 +16,7 @@ import { STRINGS } from "./i18n";
 import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
 import { importFromFile } from "./importFile";
+import { BackIcon } from "./BackIcon";
 import { isPreview } from "./preview";
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { AuthRequiredError, chooseRepository, goToLogin, serverInfo, setEditToken, type EventRepository } from "./repository";
@@ -266,22 +267,11 @@ export default function App() {
   const mainCal = getCalendar(primary);
   const otherCal = primary === "hebrew" ? gregorian : hebrew;
 
-  // The day to jump back to (same rule as the month view's button): the selected day when it is outside the
-  // displayed month, else the place the user was at before pressing Today.
-  const phoneJump = (() => {
-    const first = mainCal.toEpochDay({ year: ym.year, monthCode: ym.monthCode, day: 1 });
-    const len = mainCal.daysInMonth(ym.year, ym.monthCode) ?? 0;
-    const outside = selected !== null && (selected < first || selected >= first + len);
-    const day = outside ? selected! : returnTo !== null && returnTo !== selected ? returnTo : null;
-    if (day === null) return null;
-    const d = mainCal.fromEpochDay(day);
-    const full = mainCal.formatDate(d, locale);
-    return {
-      short: `${mainCal.formatDayNumber(d.day, locale)} ${mainCal.monthName({ year: d.year, monthCode: d.monthCode }, locale)}`,
-      label: outside ? `${t.goToSelected}: ${full}` : t.backTo(full),
-      go: outside ? () => setYm(ymOf(primary, day)) : goBack,
-    };
-  })();
+  // Phone: the Today button is "smart". Right after pressing Today (while the view still shows today),
+  // it offers "Back" to where the user was; once they move on themselves, it is plain Today again.
+  const todayYm = ymOf(primary, today);
+  const canGoBack = returnTo !== null && selected === today && ym.year === todayYm.year && ym.monthCode === todayYm.monthCode;
+  const backLabel = canGoBack ? t.backTo(mainCal.formatDate(mainCal.fromEpochDay(returnTo!), locale)) : "";
   return (
     <main className="app">
       <header className="top">
@@ -407,15 +397,13 @@ export default function App() {
       </div>
 
       <nav className="bottom-bar" aria-label={t.calendars}>
-        <span className="bar-start">
-          <button type="button" className="glass-btn" onClick={goToday}>{t.today}</button>
-          {/* Phone: "back to a day" lives here, in the fixed toolbar, so the calendar never shifts. */}
-          {phoneJump && (
-            <button type="button" className="glass-btn jump-btn" onClick={phoneJump.go} aria-label={phoneJump.label} title={phoneJump.label}>
-              <span aria-hidden>↩</span> {phoneJump.short}
-            </button>
-          )}
-        </span>
+        {canGoBack ? (
+          <button type="button" className="glass-btn today-btn" onClick={goBack} aria-label={backLabel} title={backLabel}>
+            <BackIcon /> {t.back}
+          </button>
+        ) : (
+          <button type="button" className="glass-btn today-btn" onClick={goToday}>{t.today}</button>
+        )}
         <button type="button" className={`glass-btn${sidebarOpen ? " on" : ""}`} onClick={toggleSidebar} aria-expanded={sidebarOpen}>{t.calendars}</button>
         {readOnly ? (
           <button type="button" className="glass-btn" onClick={goToLogin} aria-label={t.login.signInToEdit}>

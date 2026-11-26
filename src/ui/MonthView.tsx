@@ -6,6 +6,7 @@
  */
 import { useRef, useState } from "react";
 import { YearInput } from "./YearInput";
+import { BackIcon } from "./BackIcon";
 import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/calendars/types";
 import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
@@ -224,7 +225,7 @@ export function MonthView(p: Props) {
               without moving the pickers or pushing the grid down. Short label (day + month); full date in the tooltip. */}
           {jump && (
             <button type="button" className="goto-selected" onClick={jump.go} title={jump.full} aria-label={jump.full}>
-              <span aria-hidden>↩</span> {jump.short}
+              <BackIcon /> {jump.short}
             </button>
           )}
         </div>

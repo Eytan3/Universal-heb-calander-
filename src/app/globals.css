@@ -407,8 +407,9 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 /* The month title is a button only on phones (it reveals the pickers); elsewhere it reads as plain text */
 .title-btn { all: unset; font: inherit; color: inherit; letter-spacing: inherit; cursor: default; display: inline-flex; align-items: center; gap: 0.35rem; }
 .title-chev { display: none; }
-.bar-start { display: contents; }
-.jump-btn { display: none; }
+/* Drawn "back" arrow (no emoji) */
+.back-icon { width: 1.05em; height: 1.05em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.goto-selected { display: inline-flex; align-items: center; gap: 0.35rem; }
 
 /* ── iPhone: a fixed calendar, like the iOS month view ───────────────────────
    The page itself does not scroll: top bar, month header and grid stay put, and only the day list scrolls.
@@ -453,11 +454,11 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .grid > .cell { box-shadow: inset 0 0.5px 0 var(--line); }
   .grid > .cell.pad { box-shadow: none; }
   /* Toolbar: Today (+ "back to…") at the start, Calendars, then + */
-  /* The toolbar can never be wider than the screen: the "back to" button gives way first */
+  /* The toolbar never grows wider than the screen */
   .bottom-bar { overflow: hidden; }
   .bottom-bar > * { flex-shrink: 0; }
-  .bar-start { display: flex; gap: 0.4rem; align-items: center; min-width: 0; flex-shrink: 1; }
-  .jump-btn { display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; max-width: 8.5rem; flex-shrink: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 0.8rem !important; }
+  /* Today ⇄ Back: one button, one fixed width, so switching never moves anything */
+  .today-btn { width: 6.5rem; padding: 0 !important; justify-content: center; gap: 0.35rem; display: inline-flex; align-items: center; }
   /* Day list: roomy rows */
   .up-title { font-size: 1.12rem; }
   /* A festival day reads at a glance: its number takes the holiday colour (not on today / the selected day) */
