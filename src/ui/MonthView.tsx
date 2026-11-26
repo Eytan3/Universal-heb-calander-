@@ -34,6 +34,11 @@ interface Props {
   /** Double click: open the editor for a new event on that day. */
   onDayDoubleClick: (date: CalendarDate, day: EpochDay) => void;
   onEventClick: (uid: string, day: EpochDay) => void;
+  /** "Today" pressed: jump to today, remembering where the user was. */
+  onToday: () => void;
+  /** The day the user was on before pressing Today (null when there is none to go back to). */
+  returnTo: EpochDay | null;
+  onReturn: () => void;
 }
 
 const WEEK_SUN = Array.from({ length: 7 }, (_, i) => Date.UTC(2023, 0, 1 + i)); // 2023-01-01 was a Sunday
@@ -137,7 +142,7 @@ export function MonthView(p: Props) {
             <button type="button" className="nav-arrow" aria-label={t.prev} title={t.prev} onClick={() => p.onNavigate(cal.addMonths(ym, -1))}>
               <svg viewBox="0 0 16 16" aria-hidden className="flip"><path d="M10 3.5L5.5 8l4.5 4.5" /></svg>
             </button>
-            <button type="button" className="nav-today" onClick={() => { goTo(p.today); p.onDayClick(cal.fromEpochDay(p.today), p.today); }}>{t.today}</button>
+            <button type="button" className="nav-today" onClick={p.onToday}>{t.today}</button>
             <button type="button" className="nav-arrow" aria-label={t.next} title={t.next} onClick={() => p.onNavigate(cal.addMonths(ym, 1))}>
               <svg viewBox="0 0 16 16" aria-hidden className="flip"><path d="M6 3.5L10.5 8 6 12.5" /></svg>
             </button>
@@ -171,8 +176,10 @@ export function MonthView(p: Props) {
             {" · "}
             <span dir="auto">{span}</span>
           </p>
-          {selectedOutside && (
+          {selectedOutside ? (
             <button type="button" className="goto-selected" onClick={() => goTo(p.selected!)}>{t.goToSelected} ↩</button>
+          ) : p.returnTo !== null && p.returnTo !== p.selected && (
+            <button type="button" className="goto-selected" onClick={p.onReturn}>{t.backTo(cal.formatDate(cal.fromEpochDay(p.returnTo), locale))} ↩</button>
           )}
         </div>
       </header>

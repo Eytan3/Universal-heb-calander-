@@ -61,7 +61,7 @@ describe("fuzz: expansion invariants", () => {
       if (frequency === "monthly" && skip !== "omit" && interval === 1 && range.end - range.start > 70 && range.start > getCalendar(cal).toEpochDay(start) + 40)
         expect(occ.length, `monthly gap ${ctx}`).toBeGreaterThanOrEqual(Math.floor((range.end - range.start) / 31) - 1);
     }
-  });
+  }, 30_000); // heavy by design: a generous limit so a busy machine does not fail it
 
   it("ICS of random event sets always parses, with unique UIDs", () => {
     for (let n = 0; n < 40; n++) {

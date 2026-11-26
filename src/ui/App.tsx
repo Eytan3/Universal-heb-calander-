@@ -52,6 +52,8 @@ export default function App() {
   const keyHandler = useRef<((e: KeyboardEvent) => void) | null>(null);
   /** Day to focus after a keyboard move, so the focus ring and screen readers follow the selection. */
   const focusDay = useRef<EpochDay | null>(null);
+  /** Where the user was before pressing Today, so they can jump back (Apple-like, but without losing the place). */
+  const [returnTo, setReturnTo] = useState<EpochDay | null>(null);
   // Lazy init so the first effect never overwrites the saved choice (theme isn't in the SSR markup).
   const [theme, setTheme] = useState<Theme>(() => (typeof window === "undefined" ? "system" : readTheme()));
   const [addCalendar, setAddCalendar] = useState<CalendarId>("hebrew");
@@ -154,7 +156,8 @@ export default function App() {
 
   /** Login is on and this visitor is not signed in: they may look, not change (the server enforces it too). */
   const readOnly = repo?.kind === "server" && serverInfo.login === "viewer";
-  const selectDay = (date: CalendarDate, day: EpochDay) => { setSelected(day); setAddCalendar(date.calendar); };
+  // Picking a day yourself sets a new place, so the "back to" point is no longer needed.
+  const selectDay = (date: CalendarDate, day: EpochDay) => { setSelected(day); setAddCalendar(date.calendar); setReturnTo(null); };
   const addOnDay = (date: CalendarDate, day: EpochDay) => { selectDay(date, day); if (!readOnly) setEditor({ date }); };
   /** Open an event on the occurrence shown on `day` (repeating events edit that occurrence, Apple-style). */
   const openEvent = (uid: string, day: EpochDay) => {
@@ -173,7 +176,14 @@ export default function App() {
   };
   /** New event on the selected day (or today), in the main calendar. */
   const addOnSelected = () => readOnly ? goToLogin() : setEditor({ date: getCalendar(addCalendar).fromEpochDay(selected ?? today) });
-  const goToday = () => { setYm(ymOf(primary, today)); setSelected(today); setAddCalendar(primary); };
+  const goToday = () => {
+    if (selected !== null && selected !== today) setReturnTo(selected);
+    setYm(ymOf(primary, today)); setSelected(today); setAddCalendar(primary);
+  };
+  const goBack = () => {
+    if (returnTo === null) return;
+    setYm(ymOf(primary, returnTo)); setSelected(returnTo); setReturnTo(null);
+  };
 
   // ── Keyboard control (layout-independent: letters are matched by physical key, e.code) ──
   /** Select a day; the view follows it into another month when needed. */
@@ -231,7 +241,8 @@ export default function App() {
       }
       default:
         switch (e.code) {
-          case "KeyT": moveTo(today); break;
+          case "KeyT": goToday(); focusDay.current = today; break;
+          case "KeyB": if (returnTo !== null) { focusDay.current = returnTo; goBack(); } else handled = false; break;
           case "KeyN": if (readOnly) handled = false; else setEditor({ date: cal.fromEpochDay(cur) }); break;
           case "KeyM": switchMode(primary === "hebrew" ? "gregory" : "hebrew"); break;
           case "KeyC": toggleSidebar(); break;
@@ -316,7 +327,8 @@ export default function App() {
       <div className="main-col">
       <MonthView key={primary} cal={mainCal} other={otherCal} ym={ym} onNavigate={setYm} locale={locale} t={t} today={today}
         selected={selected} occurrences={occurrences} events={eventsByUid} holidays={monthHolidays} colors={colors}
-        onDayClick={selectDay} onDayDoubleClick={addOnDay} onEventClick={openEvent} />
+        onDayClick={selectDay} onDayDoubleClick={addOnDay} onEventClick={openEvent}
+        onToday={goToday} returnTo={returnTo} onReturn={goBack} />
 
       {selected !== null && (() => {
         const g = gregorian.fromEpochDay(selected);

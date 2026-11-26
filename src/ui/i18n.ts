@@ -40,7 +40,7 @@ const en = {
   },
   kb: {
     title: "Keyboard shortcuts", day: "Previous / next day", week: "Previous / next week", month: "Previous / next month",
-    year: "Previous / next year", monthEdges: "First / last day of the month", today: "Today", newEvent: "New event on the selected day",
+    year: "Previous / next year", monthEdges: "First / last day of the month", today: "Today", back: "Back to where you were before Today", newEvent: "New event on the selected day",
     open: "Open the selected day's event (or a new one)", mode: "Switch Hebrew ⇄ Gregorian", panel: "Calendars panel",
     settings: "Settings", help: "Keyboard shortcuts", close: "Close", save: "Save (in the event editor)",
     note: "Letter keys work with any keyboard layout, including Hebrew.",
@@ -66,6 +66,7 @@ const en = {
   next: "Next month",
   today: "Today",
   goToSelected: "Go to selected day",
+  backTo: (date: string) => `Back to ${date}`,
   leapYear: "Leap year · 13 months",
   commonYear: "12 months",
   days: (n: number) => `${n} days`,
@@ -192,7 +193,7 @@ const he: Strings = {
   },
   kb: {
     title: "קיצורי מקלדת", day: "יום קודם / הבא", week: "שבוע קודם / הבא", month: "חודש קודם / הבא",
-    year: "שנה קודמת / הבאה", monthEdges: "היום הראשון / האחרון בחודש", today: "היום", newEvent: "אירוע חדש ביום הנבחר",
+    year: "שנה קודמת / הבאה", monthEdges: "היום הראשון / האחרון בחודש", today: "היום", back: "חזרה למקום שהייתם בו לפני ״היום״", newEvent: "אירוע חדש ביום הנבחר",
     open: "פתיחת האירוע ביום הנבחר (או אירוע חדש)", mode: "החלפת עברי ⇄ לועזי", panel: "פאנל היומנים",
     settings: "הגדרות", help: "קיצורי מקלדת", close: "סגירה", save: "שמירה (בחלון אירוע)",
     note: "מקשי האותיות עובדים בכל פריסת מקלדת, גם בעברית.",
@@ -218,6 +219,7 @@ const he: Strings = {
   next: "החודש הבא",
   today: "היום",
   goToSelected: "מעבר ליום הנבחר",
+  backTo: (date) => `חזרה ל־${date}`,
   leapYear: "שנה מעוברת · 13 חודשים",
   commonYear: "12 חודשים",
   days: (n) => `${n} ימים`,

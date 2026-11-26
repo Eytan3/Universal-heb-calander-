@@ -19,6 +19,7 @@ export function KeyboardHelp({ t, locale, onClose }: { t: Strings; locale: Local
     [["Shift ↑", "Shift ↓"], t.kb.year],
     [["Home", "End"], t.kb.monthEdges],
     [["T"], t.kb.today],
+    [["B"], t.kb.back],
     [["N"], t.kb.newEvent],
     [["Enter"], t.kb.open],
     [["M"], t.kb.mode],
