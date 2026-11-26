@@ -4,7 +4,7 @@
  * month structure (its first day, its length) — never from Gregorian boundaries.
  * Each cell is an absolute EpochDay, so events and selection line up across views.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { YearInput } from "./YearInput";
 import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/calendars/types";
 import type { Occurrence } from "@/core/events/expand";
@@ -46,6 +46,34 @@ const WEEK_SUN = Array.from({ length: 7 }, (_, i) => Date.UTC(2023, 0, 1 + i)); 
 
 export function MonthView(p: Props) {
   const [pickersOpen, setPickersOpen] = useState(false);
+
+  // ── Swipe between months (touch screens), like iOS: swipe up → next month, down → previous.
+  // The grid follows the finger; past a threshold the month changes and the new one slides in.
+  const [drag, setDrag] = useState(0);
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  const touch = useRef<{ x: number; y: number; axis: "y" | "x" | null } | null>(null);
+  const SWIPE = 56; // px
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) { touch.current = null; return; }
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const t0 = touch.current;
+    if (!t0) return;
+    const dx = e.touches[0].clientX - t0.x, dy = e.touches[0].clientY - t0.y;
+    if (!t0.axis && Math.hypot(dx, dy) > 8) t0.axis = Math.abs(dy) > Math.abs(dx) ? "y" : "x";
+    if (t0.axis === "y") setDrag(dy * 0.55); // follow the finger, a little damped
+  };
+  const onTouchEnd = () => {
+    const t0 = touch.current;
+    touch.current = null;
+    if (t0?.axis === "y" && Math.abs(drag) * (1 / 0.55) > SWIPE) {
+      const dir = drag < 0 ? "next" : "prev";
+      setSlide(dir);
+      p.onNavigate(cal.addMonths(ym, dir === "next" ? 1 : -1));
+    }
+    setDrag(0);
+  };
   const { cal, other, ym, locale, t } = p;
   const months = cal.monthsInYear(ym.year);
   const daysInMonth = cal.daysInMonth(ym.year, ym.monthCode)!;
@@ -210,11 +238,19 @@ export function MonthView(p: Props) {
           </p>
         </div>
       </header>
-      <div className="grid" role="grid">
+      {/* The weekday row stays still; only the days move when swiping between months. */}
+      <div className="weekdays" aria-hidden>
         {WEEK_SUN.map((ms) => (
-          <div key={ms} className="weekday" role="columnheader">{weekdayFmt.format(ms)}</div>
+          <div key={ms} className="weekday">{weekdayFmt.format(ms)}</div>
         ))}
-        {cells}
+      </div>
+      <div className="grid-wrap" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+        <div className={`grid${slide ? ` slide-${slide}` : ""}${drag ? " dragging" : ""}`} role="grid"
+          key={`${ym.year}-${ym.monthCode}`}
+          style={drag ? { transform: `translateY(${drag}px)`, opacity: Math.max(0.35, 1 - Math.abs(drag) / 260) } : undefined}
+          onAnimationEnd={() => setSlide(null)}>
+          {cells}
+        </div>
       </div>
     </section>
   );

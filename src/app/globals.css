@@ -164,7 +164,8 @@ button:disabled { opacity: 0.45; cursor: default; }
 .goto-selected { border: 0; background: transparent; color: var(--accent); font-weight: 700; font-size: 0.88rem; padding: 0.15rem 0.4rem; border-radius: 6px; white-space: nowrap; }
 
 /* ── Month grid: no vertical lines, hairlines between weeks ── */
-.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.grid, .weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.grid-wrap { overflow: hidden; }
 .weekday { text-align: center; font-size: 0.8rem; color: var(--muted); padding: 0.35rem 0 0.5rem; font-weight: 700; }
 .cell { position: relative; min-height: 7.2rem; padding: 0.35rem 0.25rem 0.3rem; display: flex; flex-direction: column; gap: 3px; border-top: 0.5px solid var(--line); min-width: 0; }
 .cell.pad { border-top-color: transparent; }
@@ -414,7 +415,8 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
    Inside days, dots replace the (truncated) labels; the day list below has the details. */
 @media (max-width: 600px) {
   html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
-  .app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding-bottom: 0; }
+  /* Pinned to the screen: Safari cannot drag or bounce the page as a whole */
+  .app { position: fixed; inset: 0; height: auto; display: flex; flex-direction: column; padding-bottom: 0; }
   .app > .top, .app > .banner { flex: none; }
   .layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .main-col { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
@@ -459,3 +461,15 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .cell { min-height: 3.1rem; }
   .primary { height: 1.7rem; min-width: 1.7rem; }
 }
+
+/* ── Month swipe (touch): the grid takes vertical drags itself; taps still work ── */
+@media (max-width: 600px) {
+  .grid-wrap { touch-action: pan-x pinch-zoom; }
+  .grid { will-change: transform; }
+  .grid:not(.dragging) { transition: transform 0.25s cubic-bezier(.2,.8,.2,1), opacity 0.25s; }
+  .grid.slide-next { animation: month-in-next 0.3s cubic-bezier(.2,.8,.2,1); }
+  .grid.slide-prev { animation: month-in-prev 0.3s cubic-bezier(.2,.8,.2,1); }
+}
+@keyframes month-in-next { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes month-in-prev { from { transform: translateY(-40%); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .grid.slide-next, .grid.slide-prev { animation: none; } }
