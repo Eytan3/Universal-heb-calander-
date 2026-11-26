@@ -298,7 +298,13 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   .holiday { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; word-break: break-word; }
   .chip { padding: 0.05rem 0.2rem; border-radius: 4px; }
   /* Bottom toolbar, like iOS: Today · Calendars · + */
-  .bottom-bar { display: flex; position: fixed; inset-inline: 0.75rem; bottom: calc(0.75rem + env(safe-area-inset-bottom)); z-index: 10; justify-content: space-between; align-items: center; gap: 0.5rem; }
+  /* A solid toolbar band (not floating buttons): content scrolls behind it and ends above it, so it never covers events */
+  .bottom-bar { display: flex; position: fixed; inset-inline: 0; bottom: 0; z-index: 10; justify-content: space-between; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    border-top: 0.5px solid var(--glass-line); }
+  /* Room for the toolbar (2.75rem buttons + 1rem padding) and the home indicator */
+  .app { padding-bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
   .bottom-bar .add-fab { width: 2.75rem; height: 2.75rem; }
   .bottom-bar .glass-btn { height: 2.75rem; padding: 0 1.1rem; color: var(--accent); }
   .bottom-bar .glass-btn.on { color: var(--ink); }

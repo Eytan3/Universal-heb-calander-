@@ -24,7 +24,7 @@ const html = `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>עִתִּים · Ittim — preview</title>
 <script>${THEME_BOOT}</script>
 <style>${css}</style>
