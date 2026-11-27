@@ -134,7 +134,11 @@ export function MonthView(p: Props) {
           onDoubleClick={() => p.onDayDoubleClick(nativeDate, day)}
         />
         <div className="cell-head">
-          <span className="primary">{cal.formatDayNumber(d, locale)}</span>
+          {(() => {
+            const label = cal.formatDayNumber(d, locale);
+            // Length decides the text size, so the today / selected marker is always a true circle
+            return <span className="primary" data-len={[...label].length >= 3 ? "long" : undefined}>{label}</span>;
+          })()}
           <span className={showOtherMonth ? "secondary strong" : "secondary"}>
             {other.formatDayNumber(o.day, locale)}
             {showOtherMonth ? ` ${other.monthName(o, locale, "short")}` : ""}
