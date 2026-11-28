@@ -76,26 +76,8 @@ export default function App() {
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   const toggleCard = (id: string) => setOpenCards((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  // iPhone keyboard: iOS slides the whole screen up when the field you tap would end up under the
-  // keyboard. To keep everything still, a field in the lower half of a sheet is scrolled up to just
-  // under the sheet's title bar the moment it is touched — before the keyboard opens — so iOS has
-  // no reason to move anything. (Room to scroll is added below the fields once typing starts.)
-  useEffect(() => {
-    const FIELD = ".sheet input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=time]), .sheet textarea, .sheet select";
-    const onDown = (e: PointerEvent) => {
-      if (!window.matchMedia("(max-width: 600px)").matches) return;
-      const f = (e.target as Element | null)?.closest?.(FIELD) as HTMLElement | null;
-      const sheet = f?.closest(".sheet") as HTMLElement | null;
-      if (!f || !sheet) return;
-      sheet.classList.add("typing");
-      const r = f.getBoundingClientRect();
-      if (r.bottom <= window.innerHeight * 0.45) return;
-      const barBottom = sheet.querySelector(".sheet-bar")?.getBoundingClientRect().bottom ?? sheet.getBoundingClientRect().top;
-      sheet.scrollTop += r.top - barBottom - 12;
-    };
-    document.addEventListener("pointerdown", onDown, true);
-    return () => document.removeEventListener("pointerdown", onDown, true);
-  }, []);
+  // iPhone: a sheet is a full-screen page (see globals.css) — it starts at the top
+  useEffect(() => { window.scrollTo(0, 0); }, [editor, showSettings, showKeys]);
 
   useEffect(() => {
     const saved = (() => { try { return localStorage.getItem("universal-calendar:locale"); } catch { return null; } })();

@@ -327,8 +327,6 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   /* Sheets rise from the bottom but always fill the screen from just under the status bar, like iOS:
      the title bar (Cancel / Add) and the first fields are at the top, never under the keyboard. */
   .sheet-backdrop { place-items: stretch; padding: calc(env(safe-area-inset-top) + 0.6rem) 0 0; }
-  /* While typing: room below the last field, so any field can be scrolled up above the keyboard */
-  .sheet.typing .sheet-body { padding-bottom: 80vh; }
   .sheet { width: 100%; height: 100%; max-height: none; border-radius: 16px 16px 0 0; animation: sheet-up 260ms cubic-bezier(.2, .8, .2, 1); }
   .sheet-body { padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
   .grabber { display: block; }
@@ -557,3 +555,20 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 .zman-row select, .zman-inline input { border: 0; background: var(--fill); border-radius: 8px; padding: 0.35rem 0.5rem; font: inherit; color: inherit; }
 .zman-inline { display: flex; align-items: center; gap: 0.4rem; }
 .zman-inline input { width: 4.2rem; }
+
+/* ── iPhone: an open sheet (new event, settings) is a full-screen page, not a layer ──────────
+   A layer pinned over a page that cannot scroll makes iOS slide the whole screen when the
+   keyboard opens (the sheet jumped). As an ordinary page, iOS simply scrolls to the field you
+   tap, like any form. The calendar steps aside while it is open; the title bar stays on top. */
+@media (max-width: 600px) {
+  html:has(.app > .sheet-backdrop), html:has(.app > .sheet-backdrop) body { height: auto; overflow: visible; }
+  .app:has(> .sheet-backdrop) { position: static; display: block; overflow: visible; padding: 0; margin: 0; max-width: none; }
+  .app:has(> .sheet-backdrop) > :not(.sheet-backdrop) { display: none !important; }
+  .app > .sheet-backdrop { position: static; display: block; padding: 0; background: var(--sheet); min-height: 100dvh; animation: none; }
+  .app > .sheet-backdrop > .sheet { height: auto; min-height: 100dvh; overflow: visible; border-radius: 0; box-shadow: none;
+    animation: page-up 220ms cubic-bezier(.2, .8, .2, 1); }
+  .app > .sheet-backdrop .sheet-bar { padding-top: calc(env(safe-area-inset-top) + 0.75rem); background: var(--sheet); }
+  .app > .sheet-backdrop .grabber { display: none; }
+}
+@keyframes page-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .app > .sheet-backdrop > .sheet { animation: none; } }
