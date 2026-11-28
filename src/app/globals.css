@@ -398,7 +398,6 @@ label.opt.disabled { opacity: 0.6; cursor: default; }
 body { caret-color: transparent; }
 /* Reserve the scrollbar's room always, so a taller day (e.g. one with a holiday card) never shifts the layout sideways. */
 html { scrollbar-gutter: stable; }
-.main-col > .day-list { scrollbar-gutter: stable; }
 input, textarea, select, [contenteditable] { caret-color: auto; }
 .grid { -webkit-user-select: none; user-select: none; }
 
@@ -436,8 +435,19 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .main-col { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; }
   .main-col > .month { flex: none; }
-  .main-col > .day-list { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-    margin-top: 0.5rem; padding-bottom: calc(var(--toolbar-h) + var(--toolbar-fade) + var(--toolbar-air) + env(safe-area-inset-bottom)); }
+  /* The day's title is fixed; only what is under it scrolls — in its own box, so nothing ever slides
+     beneath the title or peeks around it (not even during iOS's bounce). Items fade out at the top edge
+     the same way they fade into the bottom toolbar. */
+  .main-col > .day-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; margin-top: 0.5rem; }
+  .main-col > .day-list .day-head { flex: none; margin-bottom: 0; padding-bottom: 0.15rem; }
+  .day-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    padding-top: var(--edge-fade);
+    padding-bottom: calc(var(--toolbar-h) + var(--toolbar-fade) + var(--toolbar-air) + env(safe-area-inset-bottom));
+    --list-end: calc(var(--toolbar-h) + var(--toolbar-air) + env(safe-area-inset-bottom));
+    -webkit-mask-image: var(--list-mask); mask-image: var(--list-mask);
+    --list-mask: linear-gradient(to bottom, transparent 0, #000 var(--edge-fade),
+      #000 calc(100% - var(--list-end) - var(--toolbar-fade)), transparent calc(100% - var(--list-end))); }
+  :root { --edge-fade: 0.7rem; }
   .month-meta-row { display: none; }
   .month-head { row-gap: 0.4rem; margin-bottom: 0.35rem; }
   /* Like iOS: no pickers on screen — tap the month title to show them (the chevron says so) */
@@ -467,7 +477,7 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .grid > .cell.pad { box-shadow: none; }
   /* Toolbar: Today (+ "back to…") at the start, Calendars, then + */
   /* The toolbar never grows wider than the screen */
-  .bottom-bar { overflow: hidden; }
+  .bottom-bar { overflow-x: clip; }
   .bottom-bar > * { flex-shrink: 0; }
   /* Today ⇄ Back: one button, one fixed width, so switching never moves anything */
   .today-btn { width: 6.5rem; padding: 0 !important; justify-content: center; gap: 0.35rem; display: inline-flex; align-items: center; }
@@ -475,8 +485,6 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .up-title { font-size: 1.12rem; }
   /* A festival day reads at a glance: its number takes the holiday colour (not on today / the selected day) */
   .cell.yomtov-day:not(.today):not(.selected) .primary { color: var(--holiday); }
-  /* The day's title stays at the top of the list while its events scroll under it */
-  .main-col > .day-list .day-head { position: sticky; top: 0; z-index: 1; background: var(--bg); padding-bottom: 0.4rem; }
   /* The mouse hint (click / double-click) means nothing on a touch screen */
   .day-hint { display: none; }
 }

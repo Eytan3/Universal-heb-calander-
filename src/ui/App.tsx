@@ -398,6 +398,7 @@ export default function App() {
                 </p>
               </div>
             </header>
+            <div className="day-scroll">
             {dayHolidays.length > 0 && (
               <ul className="holiday-cards">
                 {dayHolidays.map((h) => {
@@ -445,6 +446,7 @@ export default function App() {
               </ul>
             )}
             <p className={`muted small${readOnly ? "" : " day-hint"}`}>{readOnly ? t.login.viewOnly : t.dayHint}</p>
+            </div>
           </section>
         );
       })()}
