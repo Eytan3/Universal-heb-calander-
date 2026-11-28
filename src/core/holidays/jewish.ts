@@ -184,7 +184,7 @@ function occurrencesForYear(year: number, options: HolidayOptions): HolidayOccur
   }
   if (options.categories.includes("roshchodesh") || options.categories.includes("minor")) {
     const rc = roshChodesh(year, options);
-    out.push(...rc.filter((o) => options.categories.includes(o.category)));
+    out.push(...rc.filter((o) => options.categories.includes(o.category as HolidayCategory)));
   }
   return out;
 }

@@ -434,3 +434,14 @@ instants with Intl only (two-offset resolution: gaps move forward, overlaps take
 day-based; time is attached per occurrence (overrides may carry their own `startTime` / `durationMinutes`).
 ICS: timed series are materialised with exact UTC DTSTART/DTEND per occurrence, so DST never shifts them and no
 VTIMEZONE is needed; all-day daily/weekly series still use RRULE with DATE values.
+
+## Shabbat & Yom Tov times
+
+`src/core/zmanim/sun.ts` implements NOAA's solar position algorithm (sunset at zenith 90°50′, nightfall at
+90° + depression) with Hebcal's exact rounding (candle lighting: sunset with seconds dropped minus N; havdalah
+by minutes: +1 when sunset is at :30 s or later; by degrees: nearest minute). `shabbat.ts` applies the rules
+(candles before a holy day; between two holy days after nightfall, except Friday Yom Tov; havdalah after the
+last). A computed calendar's `jewish.zmanim` (place, candle minutes, havdalah) turns them on; entries carry an
+exact instant (`at`) and the place's zone for display, and go to `.ics` as UTC moments. Verification:
+`scripts/zmanim-reference.mjs` (dev-only, uses @hebcal/core) writes `tests/fixtures/zmanim-hebcal.json`;
+`tests/zmanim.test.ts` requires identical results.

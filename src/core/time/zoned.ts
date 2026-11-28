@@ -93,3 +93,8 @@ export function endOf(hhmm: string, durationMinutes: number): { hhmm: string; da
   const rest = total - dayOffset * 1440;
   return { hhmm: `${String(Math.floor(rest / 60)).padStart(2, "0")}:${String(rest % 60).padStart(2, "0")}`, dayOffset };
 }
+
+/** An instant as wall-clock time in a zone, 24-hour: "16:12". */
+export function formatInstant(ms: number, tz: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: tz }).format(ms);
+}

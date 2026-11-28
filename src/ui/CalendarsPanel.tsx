@@ -8,8 +8,10 @@
 import { useState } from "react";
 import {
   COLLECTION_COLORS, DEFAULT_JEWISH_SETTINGS, isComputed, JEWISH_COLOR,
-  type Collection, type CollectionInput, type EventStoreDocument, type JewishCalendarSettings,
+  type Collection, type CollectionInput, type EventStoreDocument, type JewishCalendarSettings, type ZmanimSettings,
 } from "@/core/events/schema";
+import { CITIES, cityById, looksLikeIsrael, type City } from "@/core/zmanim/cities";
+import { deviceTimeZone } from "@/core/time/zoned";
 import { HOLIDAY_CATEGORIES, type HolidayCategory } from "@/core/holidays/types";
 import type { Locale } from "@/core/calendars/types";
 import type { Strings } from "./i18n";
@@ -42,8 +44,91 @@ export function displayName(c: Collection, t: Strings) {
 
 type Draft = { name: string; color: string; kind: "events" | "jewish"; jewish: JewishCalendarSettings };
 
-/** Region + categories of a computed Jewish calendar (like Hebcal's options). */
-function JewishSettings({ t, value, onChange }: { t: Strings; value: JewishCalendarSettings; onChange: (v: JewishCalendarSettings) => void }) {
+const HAVDALAH: Record<string, ZmanimSettings["havdalah"]> = {
+  "deg8.5": { degrees: 8.5 }, "deg7.083": { degrees: 7.083 }, min42: { minutes: 42 }, min50: { minutes: 50 }, min72: { minutes: 72 },
+};
+const havdalahKey = (h: ZmanimSettings["havdalah"]) => ("degrees" in h ? `deg${h.degrees}` : `min${h.minutes}`);
+
+/** A sensible first place: the city in the device's own time zone, else Jerusalem. */
+function defaultPlace(): City {
+  const tz = deviceTimeZone();
+  return CITIES.find((c) => c.tz === tz) ?? cityById("jerusalem")!;
+}
+const fromCity = (c: City, locale: Locale): ZmanimSettings["place"] => ({ name: locale === "he" ? c.he : c.en, lat: c.lat, lon: c.lon, tz: c.tz, cityId: c.id });
+
+/** Shabbat & festival times: place, candle-lighting minutes, havdalah method. */
+function ZmanimSettingsView({ t, locale, value, onChange }: {
+  t: Strings; locale: Locale; value: JewishCalendarSettings; onChange: (v: JewishCalendarSettings) => void;
+}) {
+  const [locating, setLocating] = useState<"busy" | "failed" | null>(null);
+  const z = value.zmanim;
+  const pickCity = (c: City) => onChange({
+    ...value, region: c.il ? "il" : "diaspora",
+    zmanim: { place: fromCity(c, locale), candleMinutes: c.candle, havdalah: z?.havdalah ?? { degrees: 8.5 } },
+  });
+  const locate = () => {
+    if (!navigator.geolocation) { setLocating("failed"); return; }
+    setLocating("busy");
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setLocating(null);
+      const lat = Math.round(pos.coords.latitude * 1e4) / 1e4, lon = Math.round(pos.coords.longitude * 1e4) / 1e4;
+      const il = looksLikeIsrael(lat, lon);
+      onChange({ ...value, region: il ? "il" : "diaspora", zmanim: {
+        place: { name: t.zmanimHereName(lat.toFixed(2), lon.toFixed(2)), lat, lon, tz: il ? "Asia/Jerusalem" : deviceTimeZone() },
+        candleMinutes: il ? 20 : 18, havdalah: z?.havdalah ?? { degrees: 8.5 },
+      } });
+    }, () => setLocating("failed"), { timeout: 15000, maximumAge: 3600_000 });
+  };
+  const il = CITIES.filter((c) => c.il), abroad = CITIES.filter((c) => !c.il);
+  const sortName = (a: City, b: City) => (locale === "he" ? a.he.localeCompare(b.he, "he") : a.en.localeCompare(b.en));
+  return (
+    <>
+      <label className="cat-item zman-toggle">
+        <input type="checkbox" checked={Boolean(z)} onChange={(e) => {
+          if (!e.target.checked) { const { zmanim: _drop, ...rest } = value; onChange(rest); return; }
+          pickCity(defaultPlace());
+        }} />
+        <span>{t.zmanimToggle}</span>
+      </label>
+      {z && (
+        <div className="zman-fields">
+          <label className="zman-row">
+            <span className="muted small">{t.zmanimPlace}</span>
+            <select value={z.place.cityId ?? "__here"} onChange={(e) => {
+              if (e.target.value === "__locate") { locate(); return; }
+              const c = cityById(e.target.value);
+              if (c) pickCity(c);
+            }}>
+              {!z.place.cityId && <option value="__here">{z.place.name}</option>}
+              <optgroup label={t.zmanimIsrael}>{[jerusalemFirst(il)[0], ...jerusalemFirst(il).slice(1).sort(sortName)].map((c) => <option key={c.id} value={c.id}>{locale === "he" ? c.he : c.en}</option>)}</optgroup>
+              <optgroup label={t.zmanimAbroad}>{abroad.slice().sort(sortName).map((c) => <option key={c.id} value={c.id}>{locale === "he" ? c.he : c.en}</option>)}</optgroup>
+              <option value="__locate">📍 {t.zmanimHere}</option>
+            </select>
+          </label>
+          {locating && <span className={`small ${locating === "failed" ? "import-error" : "muted"}`}>{locating === "busy" ? t.zmanimLocating : t.zmanimLocateFailed}</span>}
+          <label className="zman-row">
+            <span className="muted small">{t.zmanimCandles}</span>
+            <span className="zman-inline">
+              <input type="number" min={0} max={90} value={z.candleMinutes} aria-label={t.zmanimCandles}
+                onChange={(e) => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 0 && n <= 90) onChange({ ...value, zmanim: { ...z, candleMinutes: n } }); }} />
+              <span className="small">{t.zmanimCandlesUnit}</span>
+            </span>
+          </label>
+          <label className="zman-row">
+            <span className="muted small">{t.zmanimHavdalah}</span>
+            <select value={havdalahKey(z.havdalah)} onChange={(e) => onChange({ ...value, zmanim: { ...z, havdalah: HAVDALAH[e.target.value] } })}>
+              {Object.keys(HAVDALAH).map((k) => <option key={k} value={k}>{t.havdalahOptions[k]}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
+    </>
+  );
+}
+const jerusalemFirst = (list: City[]) => [...list.filter((c) => c.id === "jerusalem"), ...list.filter((c) => c.id !== "jerusalem")];
+
+/** Region + categories of a computed Jewish calendar (like Hebcal's options), and its Shabbat times. */
+function JewishSettings({ t, locale, value, onChange }: { t: Strings; locale: Locale; value: JewishCalendarSettings; onChange: (v: JewishCalendarSettings) => void }) {
   return (
     <>
       <span className="muted small">{t.region}</span>
@@ -66,6 +151,7 @@ function JewishSettings({ t, value, onChange }: { t: Strings; value: JewishCalen
           );
         })}
       </div>
+      <ZmanimSettingsView t={t} locale={locale} value={value} onChange={onChange} />
     </>
   );
 }
@@ -158,7 +244,7 @@ export function CalendarsPanel(p: Props) {
                   <input value={draft.name} placeholder={computed ? t.holidaysName : t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                   <Swatches t={t} value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
-                  {computed && <JewishSettings t={t} value={draft.jewish} onChange={(jewish) => setDraft({ ...draft, jewish })} />}
+                  {computed && <JewishSettings t={t} locale={p.locale} value={draft.jewish} onChange={(jewish) => setDraft({ ...draft, jewish })} />}
                   <button type="button" className="opt primary-opt" onClick={() => run(async () => { await save(c, draft); setOpen(null); })}>{t.done}</button>
                   </>)}
                   {p.serverFeeds && (
@@ -203,7 +289,7 @@ export function CalendarsPanel(p: Props) {
           <Swatches t={t} value={creating.color} onChange={(color) => setCreating({ ...creating, color })} />
           {creating.kind === "jewish" && (<>
             <p className="muted small">{t.kindHelpJewish}</p>
-            <JewishSettings t={t} value={creating.jewish} onChange={(jewish) => setCreating({ ...creating, jewish })} />
+            <JewishSettings t={t} locale={p.locale} value={creating.jewish} onChange={(jewish) => setCreating({ ...creating, jewish })} />
           </>)}
           <div className="row-actions">
             <button type="button" className="opt" onClick={() => setCreating(null)}>{t.cancel}</button>

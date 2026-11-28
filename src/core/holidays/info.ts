@@ -15,6 +15,18 @@ export interface HolidayInfo {
 const FAST = "🕯️";
 
 const INFO: Record<string, HolidayInfo> = {
+  candles: {
+    emoji: "🕯️",
+    he: "הדלקת נרות שבת או חג, לפני השקיעה לפי מנהג המקום (בדרך כלל 20 דקות בארץ, 40 בירושלים, 30 בחיפה, 18 בחו״ל). כשחג נמשך ישירות משבת או מיום טוב קודם, מדליקים רק אחרי צאת הכוכבים.",
+    en: "Lighting the Shabbat or festival candles, before sunset by local custom (usually 18 minutes; 20 in Israel, 40 in Jerusalem, 30 in Haifa). When a festival follows Shabbat or another festival day directly, candles are lit only after nightfall.",
+    wiki: { he: "הדלקת נרות שבת", en: "Shabbat candles" },
+  },
+  havdalah: {
+    emoji: "🍷",
+    he: "צאת השבת או החג. אומרים הבדלה על כוס יין, בשמים ונר — לפי צאת הכוכבים או מספר דקות קבוע אחרי השקיעה, כפי שנבחר בהגדרות היומן.",
+    en: "The end of Shabbat or the festival. Havdalah is said over wine, spices and a flame — at nightfall, or a fixed number of minutes after sunset, as chosen in the calendar's settings.",
+    wiki: { he: "הבדלה", en: "Havdalah" },
+  },
   "rosh-hashana": {
     emoji: "🍎",
     he: "ראש השנה העברית, א׳–ב׳ בתשרי. תוקעים בשופר, אוכלים תפוח בדבש לשנה מתוקה, ופותחים את עשרת ימי התשובה.",

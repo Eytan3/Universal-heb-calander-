@@ -512,3 +512,10 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 .tz-select { max-width: 60%; }
 .up-when.timed { color: var(--ink); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
 .chip-time { font-weight: 800; font-variant-numeric: tabular-nums; }
+.h-time, .zman-time { font-variant-numeric: tabular-nums; font-weight: 800; direction: ltr; unicode-bidi: isolate; }
+.zman-toggle { margin-top: 0.35rem; font-weight: 600; }
+.zman-fields { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.2rem 0 0.3rem; }
+.zman-row { display: flex; flex-direction: column; gap: 0.2rem; }
+.zman-row select, .zman-inline input { border: 0; background: var(--fill); border-radius: 8px; padding: 0.35rem 0.5rem; font: inherit; color: inherit; }
+.zman-inline { display: flex; align-items: center; gap: 0.4rem; }
+.zman-inline input { width: 4.2rem; }

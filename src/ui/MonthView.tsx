@@ -12,7 +12,7 @@ import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
 import type { HolidayOccurrence } from "@/core/holidays/types";
 import { JEWISH_COLOR } from "@/core/events/schema";
-import { formatTime, minutesOf } from "@/core/time/zoned";
+import { formatInstant, formatTime, minutesOf } from "@/core/time/zoned";
 import { holidayInfo, holidayText } from "@/core/holidays/info";
 import { describeRule } from "@/core/events/describe";
 import { weekdayOf, type EpochDay } from "@/core/time/epochDay";
@@ -121,7 +121,8 @@ export function MonthView(p: Props) {
       hol.some((h) => h.yomTov) && "yomtov-day"].filter(Boolean).join(" ");
     // Phone (compact) view: one rounded strip under the day, split into segments — the holiday colour first,
     // then one segment per event in its calendar's colour (at most four).
-    const dotColors = [...(hol.length ? [hol[0].color ?? "var(--holiday)"] : []),
+    const dayHol = hol.filter((h) => h.category !== "zmanim"); // the weekly Shabbat times would mark every Friday
+    const dotColors = [...(dayHol.length ? [dayHol[0].color ?? "var(--holiday)"] : []),
       ...occ.map((x) => p.colors.get(p.events.get(x.eventUid)?.collectionId ?? "") ?? "var(--hebrew)")].slice(0, 4);
     const nativeDate: CalendarDate = { calendar: cal.id, year: ym.year, monthCode: ym.monthCode, day: d };
     cells.push(
@@ -158,8 +159,10 @@ export function MonthView(p: Props) {
             {hol.map((h) => (
               <li key={h.id + h.epochDay} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto"
                 style={h.color && h.color !== JEWISH_COLOR ? ({ "--hc": h.color } as React.CSSProperties) : undefined}
-                title={`${locale === "he" ? h.he : h.en} — ${holidayText(h.id, locale)}`}>
-                <span className="h-emoji" aria-hidden>{holidayInfo(h.id)?.emoji}</span> {locale === "he" ? h.he : h.en}
+                title={`${locale === "he" ? h.he : h.en}${h.at !== undefined ? ` ${formatInstant(h.at, h.timeZone!, locale)}` : ""} — ${holidayText(h.id, locale)}`}>
+                <span className="h-emoji" aria-hidden>{holidayInfo(h.id)?.emoji}</span>{" "}
+                {/* Candle lighting / havdalah: just the time in the cell (the name is in the tooltip and the day list) */}
+                {h.at !== undefined ? <span className="h-time">{formatInstant(h.at, h.timeZone!, locale)}</span> : locale === "he" ? h.he : h.en}
               </li>
             ))}
           </ul>

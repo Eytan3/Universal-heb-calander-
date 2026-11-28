@@ -48,6 +48,17 @@ export interface JewishCalendarSettings {
   region: "il" | "diaspora";
   /** Which kinds of days to include. */
   categories: HolidayCategory[];
+  /** Shabbat & Yom Tov times (candle lighting, havdalah) for a place; absent = off. */
+  zmanim?: ZmanimSettings;
+}
+
+export interface ZmanimSettings {
+  /** Where: a city from the list (cityId) or a custom place (e.g. the device location). */
+  place: { name: string; lat: number; lon: number; tz: string; cityId?: string };
+  /** Candle lighting, minutes before sunset. */
+  candleMinutes: number;
+  /** Nightfall for havdalah: the sun N° below the horizon, or N minutes after sunset. */
+  havdalah: { degrees: number } | { minutes: number };
 }
 
 export const DEFAULT_JEWISH_SETTINGS: JewishCalendarSettings = { region: "il", categories: ["major", "minor", "fast", "modern"] };
@@ -336,9 +347,30 @@ export function validateJewishSettings(raw: unknown): ValidationResult<JewishCal
   if (!region) errors.push("region must be il or diaspora");
   const cats = Array.isArray(o.categories) ? o.categories : null;
   if (!cats || cats.some((c) => !HOLIDAY_CATEGORIES.includes(c as HolidayCategory))) errors.push(`categories must be a subset of ${HOLIDAY_CATEGORIES.join(", ")}`);
+  let zmanim: ZmanimSettings | undefined;
+  if (o.zmanim !== undefined && o.zmanim !== null) {
+    const z = o.zmanim as Record<string, unknown>;
+    const pl = (z.place ?? {}) as Record<string, unknown>;
+    const lat = Number(pl.lat), lon = Number(pl.lon);
+    const name = typeof pl.name === "string" ? pl.name.trim().slice(0, 80) : "";
+    if (!Number.isFinite(lat) || lat < -66 || lat > 66) errors.push("zmanim.place.lat must be between -66 and 66 (beyond that the sun may not set)");
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) errors.push("zmanim.place.lon must be between -180 and 180");
+    if (!isValidTimeZone(pl.tz)) errors.push("zmanim.place.tz must be an IANA time zone");
+    const candleMinutes = Number(z.candleMinutes);
+    if (!Number.isInteger(candleMinutes) || candleMinutes < 0 || candleMinutes > 90) errors.push("zmanim.candleMinutes must be 0–90");
+    const h = (z.havdalah ?? {}) as Record<string, unknown>;
+    let havdalah: ZmanimSettings["havdalah"] | null = null;
+    if (typeof h.degrees === "number" && h.degrees >= 4 && h.degrees <= 12) havdalah = { degrees: h.degrees };
+    else if (Number.isInteger(h.minutes) && (h.minutes as number) >= 20 && (h.minutes as number) <= 120) havdalah = { minutes: h.minutes as number };
+    else errors.push("zmanim.havdalah must be { degrees: 4–12 } or { minutes: 20–120 }");
+    if (!errors.length) zmanim = {
+      place: { name, lat, lon, tz: pl.tz as string, ...(typeof pl.cityId === "string" && /^[a-z-]{1,40}$/.test(pl.cityId) ? { cityId: pl.cityId } : {}) },
+      candleMinutes, havdalah: havdalah!,
+    };
+  }
   if (errors.length) return { ok: false, errors };
   // Keep the canonical order, without duplicates.
-  return { ok: true, value: { region: region!, categories: HOLIDAY_CATEGORIES.filter((c) => cats!.includes(c)) } };
+  return { ok: true, value: { region: region!, categories: HOLIDAY_CATEGORIES.filter((c) => cats!.includes(c)), ...(zmanim ? { zmanim } : {}) } };
 }
 
 export function validateCollectionInput(raw: unknown): ValidationResult<CollectionInput> {

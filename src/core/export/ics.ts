@@ -191,7 +191,7 @@ export function eventLines(events: UCEvent[], opts: Pick<IcsOptions, "range" | "
   return lines;
 }
 
-type HolidayLike = { id: string; epochDay: EpochDay; en: string; he: string };
+type HolidayLike = { id: string; epochDay: EpochDay; en: string; he: string; at?: number };
 
 /** ICS for a set of computed holidays on its own. */
 export function buildHolidaysIcs(
@@ -211,8 +211,10 @@ export function holidayLines(occurrences: HolidayLike[], opts: { uidDomain?: str
       // Stable: the same holiday on the same day always has the same UID.
       `UID:holiday.${o.id}.${icsDate(o.epochDay)}@${domain}`,
       "DTSTAMP:20260101T000000Z",
-      `DTSTART;VALUE=DATE:${icsDate(o.epochDay)}`,
-      `DTEND;VALUE=DATE:${icsDate(o.epochDay + 1)}`,
+      // Candle lighting / havdalah are moments (exact UTC); holidays are whole days.
+      ...(o.at !== undefined
+        ? [`DTSTART:${icsUtcDateTime(o.at)}`, `DTEND:${icsUtcDateTime(o.at)}`]
+        : [`DTSTART;VALUE=DATE:${icsDate(o.epochDay)}`, `DTEND;VALUE=DATE:${icsDate(o.epochDay + 1)}`]),
       `SUMMARY:${escapeText(`${holidayInfo(o.id)?.emoji ? `${holidayInfo(o.id)!.emoji} ` : ""}${opts.locale === "he" ? o.he : o.en}`)}`,
       `DESCRIPTION:${escapeText([holidayText(o.id, opts.locale), opts.locale === "he" ? o.en : o.he].filter(Boolean).join("\n"))}`,
       "TRANSP:TRANSPARENT",

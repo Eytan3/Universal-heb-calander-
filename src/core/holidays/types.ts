@@ -8,6 +8,8 @@ import type { EpochDay } from "../time/epochDay";
 import type { Range } from "../events/expand";
 
 export type HolidayCategory = "major" | "minor" | "fast" | "modern" | "roshchodesh";
+/** Display category of computed entries: holiday categories plus Shabbat & Yom Tov times. */
+export type EntryCategory = HolidayCategory | "zmanim";
 export const HOLIDAY_CATEGORIES: HolidayCategory[] = ["major", "minor", "fast", "modern", "roshchodesh"];
 
 export interface HolidayOptions {
@@ -23,12 +25,15 @@ export interface HolidayOccurrence {
   epochDay: EpochDay;
   en: string;
   he: string;
-  category: HolidayCategory;
+  category: EntryCategory;
   yomTov: boolean;
   /** Which holiday set produced it. */
   set: string;
   /** Display only: the colour of the computed calendar it is shown for. */
   color?: string;
+  /** Timed entries (candle lighting, havdalah): the exact instant, and the place's time zone for display. */
+  at?: number;
+  timeZone?: string;
 }
 
 export interface HolidaySet {

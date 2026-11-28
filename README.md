@@ -21,6 +21,12 @@ and its occurrences appear on the correct day in every calendar view and in an A
   Its *settings* (Israel or diaspora, which categories) belong to the calendar itself, so they are the same on
   every device and in its feed. Delete it for a clean calendar, or add more (e.g. one for Israel, one for the
   diaspora; one with only Rosh Chodesh). You cannot add events to it.
+- **Shabbat & festival times** in a computed calendar: choose a city (Israel and abroad) or your current
+  location, the candle-lighting minutes (Israel 20, Jerusalem 40, Haifa 30, abroad 18 by default) and the
+  havdalah method (nightfall at 8.5° / 7.083°, or 42 / 50 / 72 minutes). Candle lighting and havdalah appear
+  for every Shabbat and Yom Tov, including second days (lit after nightfall) and Yom Tov on Friday. Sunset is
+  computed by our own implementation of NOAA's solar algorithm — verified against Hebcal: every one of 3,402
+  candle-lighting and havdalah times over two years in seven cities matches to the minute.
 - A JSON event store (documented schema) on disk locally, or in Redis on Vercel.
 - A live ICS feed (`/calendar.ics`) with stable UIDs, for Apple Calendar subscriptions.
 - English (LTR) and Hebrew (RTL) interface, light and dark, in a design language inspired by iOS

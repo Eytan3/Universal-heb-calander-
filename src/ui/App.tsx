@@ -18,7 +18,7 @@ import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
 import { importFromFile } from "./importFile";
 import { BackIcon } from "./BackIcon";
-import { deviceTimeZone, endOf, formatTime, minutesOf } from "@/core/time/zoned";
+import { deviceTimeZone, endOf, formatInstant, formatTime, minutesOf } from "@/core/time/zoned";
 
 /** "10:00–11:30", "22:00–01:00 +1", "יום שלם"; the zone is named when it is not the device's own. */
 function timeLabel(ev: UCEvent, o: { startTime?: string; durationMinutes?: number }, locale: Locale, t: Strings): string {
@@ -404,11 +404,15 @@ export default function App() {
                   const info = holidayInfo(h.id);
                   const link = holidayLink(h.id, locale);
                   return (
-                    <li key={h.id} className={`holiday-card hcat-${h.category}`}
+                    <li key={h.id + (h.at ?? "")} className={`holiday-card hcat-${h.category}`}
                       style={h.color && h.color !== JEWISH_COLOR ? ({ "--hc": h.color } as React.CSSProperties) : undefined}>
                       <span className="holiday-icon" aria-hidden>{info?.emoji ?? "✡"}</span>
                       <div className="holiday-body">
-                        <strong dir="auto">{locale === "he" ? h.he : h.en}{h.yomTov && <span className="yomtov-badge">{t.yomTov}</span>}</strong>
+                        <strong dir="auto">
+                          {locale === "he" ? h.he : h.en}
+                          {h.at !== undefined && <span className="zman-time"> {formatInstant(h.at, h.timeZone!, locale)}</span>}
+                          {h.yomTov && <span className="yomtov-badge">{t.yomTov}</span>}
+                        </strong>
                         {info && <p dir="auto">{info[locale]}</p>}
                         {link && <a href={link} target="_blank" rel="noopener noreferrer">{t.readMore}</a>}
                       </div>
