@@ -4,7 +4,7 @@
  * month structure (its first day, its length) — never from Gregorian boundaries.
  * Each cell is an absolute EpochDay, so events and selection line up across views.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { YearInput } from "./YearInput";
 import { BackIcon } from "./BackIcon";
 import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/calendars/types";
@@ -50,34 +50,63 @@ const WEEK_SUN = Array.from({ length: 7 }, (_, i) => Date.UTC(2023, 0, 1 + i)); 
 export function MonthView(p: Props) {
   const [pickersOpen, setPickersOpen] = useState(false);
 
-  // ── Swipe between months (touch screens), like iOS: swipe up → next month, down → previous.
-  // The grid follows the finger; past a threshold the month changes and the new one slides in.
-  const [drag, setDrag] = useState(0);
-  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
-  const touch = useRef<{ x: number; y: number; axis: "y" | "x" | null } | null>(null);
-  const SWIPE = 56; // px
+  // ── The months are one vertical strip on touch screens, like iOS: the previous and next months sit
+  // right above and below this one (no empty rows between), the finger moves the strip 1:1, and on
+  // release it settles on the nearest month (a flick is enough to move on).
+  const [offset, setOffset] = useState(0); // px the strip is moved (negative = towards the next month)
+  const [settle, setSettle] = useState<-1 | 0 | 1 | null>(null); // animating to prev / back / next
+  const touch = useRef<{ x: number; y: number; axis: "y" | "x" | null; rowH: number; last: [number, number][] } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const rowHRef = useRef(0);
   const onTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) { touch.current = null; return; }
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null };
+    if (e.touches.length !== 1 || settle !== null) { touch.current = null; return; }
+    const rowH = (wrapRef.current?.clientHeight ?? 0) / 6;
+    rowHRef.current = rowH;
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null, rowH, last: [[e.timeStamp, 0]] };
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const t0 = touch.current;
     if (!t0) return;
     const dx = e.touches[0].clientX - t0.x, dy = e.touches[0].clientY - t0.y;
     if (!t0.axis && Math.hypot(dx, dy) > 8) t0.axis = Math.abs(dy) > Math.abs(dx) ? "y" : "x";
-    if (t0.axis === "y") setDrag(dy * 0.55); // follow the finger, a little damped
+    if (t0.axis !== "y") return;
+    t0.last = [...t0.last.slice(-4), [e.timeStamp, dy]];
+    setOffset(dy);
   };
   const onTouchEnd = () => {
     const t0 = touch.current;
     touch.current = null;
-    if (t0?.axis === "y" && Math.abs(drag) * (1 / 0.55) > SWIPE) {
-      const dir = drag < 0 ? "next" : "prev";
-      setSlide(dir);
-      p.onNavigate(cal.addMonths(ym, dir === "next" ? 1 : -1));
-    }
-    setDrag(0);
+    if (t0?.axis !== "y" || !t0.rowH) { if (offset) setOffset(0); return; }
+    const [[ta, ya], [tb, yb]] = [t0.last[0], t0.last[t0.last.length - 1]];
+    const v = tb > ta ? (yb - ya) / (tb - ta) : 0; // px/ms, negative = upwards
+    const toNext = rows(ym) * t0.rowH, toPrev = rows(prevYm) * t0.rowH;
+    const dir: -1 | 0 | 1 =
+      offset < -toNext / 2 || (v < -0.35 && offset < -12) ? 1 :
+      offset > toPrev / 2 || (v > 0.35 && offset > 12) ? -1 : 0;
+    const target = dir === 1 ? -toNext : dir === -1 ? toPrev : 0;
+    if (target === offset) { finish(dir); return; }
+    setSettle(dir);
+    setOffset(target);
+  };
+  // Safety net: if the browser skips transitionend (tab hidden, interrupted), still finish
+  useEffect(() => {
+    if (settle === null) return;
+    const id = setTimeout(() => finish(settle), 500);
+    return () => clearTimeout(id);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+  /** The strip has arrived: switch the month and put the strip back, in one render (nothing flickers). */
+  const finish = (dir: -1 | 0 | 1) => {
+    setSettle(null);
+    setOffset(0);
+    if (dir !== 0) p.onNavigate(dir === 1 ? nextYm : prevYm);
   };
   const { cal, other, ym, locale, t } = p;
+  const prevYm = cal.addMonths(ym, -1), nextYm = cal.addMonths(ym, 1);
+  /** How many week rows a month takes. */
+  function rows(m: YearMonth) {
+    const f = cal.toEpochDay({ year: m.year, monthCode: m.monthCode, day: 1 });
+    return Math.ceil((weekdayOf(f) + cal.daysInMonth(m.year, m.monthCode)!) / 7);
+  }
   const months = cal.monthsInYear(ym.year);
   const daysInMonth = cal.daysInMonth(ym.year, ym.monthCode)!;
   const first = cal.toEpochDay({ year: ym.year, monthCode: ym.monthCode, day: 1 });
@@ -107,6 +136,10 @@ export function MonthView(p: Props) {
   })();
   const isLeapCal = cal.id === "hebrew";
 
+  function monthCells(m: YearMonth): React.ReactNode[] {
+  const first = cal.toEpochDay({ year: m.year, monthCode: m.monthCode, day: 1 });
+  const daysInMonth = cal.daysInMonth(m.year, m.monthCode)!;
+  const lead = weekdayOf(first);
   const cells: React.ReactNode[] = [];
   for (let i = 0; i < lead; i++) cells.push(<div key={`pad${i}`} className="cell pad" aria-hidden />);
   for (let d = 1; d <= daysInMonth; d++) {
@@ -125,7 +158,7 @@ export function MonthView(p: Props) {
     const dayHol = hol.filter((h) => h.category !== "zmanim" && h.category !== "parasha" && h.category !== "omer" && h.category !== "special");
     const dotColors = [...(dayHol.length ? [dayHol[0].color ?? "var(--holiday)"] : []),
       ...occ.map((x) => p.colors.get(p.events.get(x.eventUid)?.collectionId ?? "") ?? "var(--hebrew)")].slice(0, 4);
-    const nativeDate: CalendarDate = { calendar: cal.id, year: ym.year, monthCode: ym.monthCode, day: d };
+    const nativeDate: CalendarDate = { calendar: cal.id, year: m.year, monthCode: m.monthCode, day: d };
     cells.push(
       <div key={day} className={cls}>
         <button
@@ -193,6 +226,17 @@ export function MonthView(p: Props) {
       </div>,
     );
   }
+  return cells;
+  }
+
+  // While dragging, the title follows the month nearest to the middle
+  const shownYm = (() => {
+    const rowH = rowHRef.current;
+    if (!rowH || (!offset && settle === null)) return ym;
+    if (offset < -(rows(ym) * rowH) / 2) return nextYm;
+    if (offset > (rows(prevYm) * rowH) / 2) return prevYm;
+    return settle === 1 ? nextYm : settle === -1 ? prevYm : ym;
+  })();
 
   return (
     <section className={`month cal-${cal.id}`} aria-label={cal.calendarName(locale)}>
@@ -201,7 +245,7 @@ export function MonthView(p: Props) {
           <h2>
             {/* On phones the month/year pickers are tucked away (like iOS); tapping the title shows them. */}
             <button type="button" className="title-btn" aria-expanded={pickersOpen} onClick={() => setPickersOpen((v) => !v)}>
-              {cal.monthName(ym, locale)} {cal.formatYear(ym.year, locale)}
+              {cal.monthName(shownYm, locale)} {cal.formatYear(shownYm.year, locale)}
               <svg className="title-chev" viewBox="0 0 16 16" aria-hidden><path d="M4 6l4 4 4-4" /></svg>
             </button>
           </h2>
@@ -259,12 +303,14 @@ export function MonthView(p: Props) {
           <div key={ms} className="weekday">{weekdayFmt.format(ms)}</div>
         ))}
       </div>
-      <div className="grid-wrap" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
-        <div className={`grid${slide ? ` slide-${slide}` : ""}${drag ? " dragging" : ""}`} role="grid"
-          key={`${ym.year}-${ym.monthCode}`}
-          style={drag ? { transform: `translateY(${drag}px)`, opacity: Math.max(0.35, 1 - Math.abs(drag) / 260) } : undefined}
-          onAnimationEnd={() => setSlide(null)}>
-          {cells}
+      <div className="grid-wrap" ref={wrapRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+        <div className={`strip${settle !== null ? " settling" : ""}${offset !== 0 || settle !== null ? " moving" : ""}`}
+          style={{ "--off": `${offset}px`, "--prev-rows": rows(prevYm), "--rows": rows(ym) } as React.CSSProperties}
+          onTransitionEnd={(e) => { if (e.target === e.currentTarget && settle !== null) finish(settle); }}>
+          {/* Neighbours: shown only on touch screens, dimmed, not interactive */}
+          <div className="grid side prev" aria-hidden inert key={`p${prevYm.year}-${prevYm.monthCode}`}>{monthCells(prevYm)}</div>
+          <div className="grid" role="grid" key={`${ym.year}-${ym.monthCode}`}>{monthCells(ym)}</div>
+          <div className="grid side next" aria-hidden inert key={`n${nextYm.year}-${nextYm.monthCode}`}>{monthCells(nextYm)}</div>
         </div>
       </div>
     </section>

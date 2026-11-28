@@ -495,18 +495,25 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .primary[data-len="long"] { font-size: 1rem; }
 }
 
-/* ── Month swipe (touch): the grid takes vertical drags itself; taps still work ── */
+/* ── Months as one strip (touch), like iOS ──────────────────────────────────
+   The previous and next months sit directly above and below this one — no empty rows between —
+   and the finger moves the whole strip. A month shorter than six weeks shows the start of the next
+   one, dimmed, in the rows it leaves free (the grid's height never changes). */
+.grid.side { display: none; }
+.strip { position: relative; }
 @media (max-width: 600px) {
-  /* The days take touch drags themselves (month swipe); the browser never pans the page sideways */
   .grid-wrap { touch-action: none; }
-  .grid { will-change: transform; }
-  .grid:not(.dragging) { transition: transform 0.25s cubic-bezier(.2,.8,.2,1), opacity 0.25s; }
-  .grid.slide-next { animation: month-in-next 0.3s cubic-bezier(.2,.8,.2,1); }
-  .grid.slide-prev { animation: month-in-prev 0.3s cubic-bezier(.2,.8,.2,1); }
+  .strip { transform: translate3d(0, var(--off, 0px), 0); will-change: transform; }
+  .strip.settling { transition: transform 0.32s cubic-bezier(.25, .9, .3, 1); }
+  /* At rest the neighbours (the next month's first week in a short month's free row) are dimmed;
+     while the strip moves they are shown in full, as one continuous strip */
+  .grid.side { display: grid; position: absolute; inset-inline: 0; opacity: 0.38; pointer-events: none; transition: opacity 0.2s; }
+  .strip.moving .grid.side { opacity: 1; }
+  .grid.side.prev { bottom: 100%; }
+  .grid.side.next { top: calc(var(--rows) * var(--row-h)); }
+  .grid.side .cell.today .primary, .grid.side .cell.selected .primary { background: none; color: inherit; }
 }
-@keyframes month-in-next { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes month-in-prev { from { transform: translateY(-40%); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .grid.slide-next, .grid.slide-prev { animation: none; } }
+@media (max-width: 600px) and (prefers-reduced-motion: reduce) { .strip.settling { transition-duration: 0.01s; } }
 
 /* Export: choose calendars */
 .export-pick { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.25rem 0; }
