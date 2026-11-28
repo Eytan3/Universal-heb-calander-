@@ -326,7 +326,9 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   /* Sheets rise from the bottom */
   /* Sheets rise from the bottom but always fill the screen from just under the status bar, like iOS:
      the title bar (Cancel / Add) and the first fields are at the top, never under the keyboard. */
-  .sheet-backdrop { place-items: stretch; padding: calc(env(safe-area-inset-top) + 0.6rem) 0 0; }
+  .sheet-backdrop { place-items: stretch; padding: calc(env(safe-area-inset-top) + 0.6rem) 0 0;
+    /* Exactly the visible part of the screen: above the keyboard when it is open (set from visualViewport) */
+    inset: auto 0; top: var(--vv-top, 0px); height: var(--vv-h, 100%); }
   .sheet { width: 100%; height: 100%; max-height: none; border-radius: 16px 16px 0 0; animation: sheet-up 260ms cubic-bezier(.2, .8, .2, 1); }
   .sheet-body { padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
   .grabber { display: block; }

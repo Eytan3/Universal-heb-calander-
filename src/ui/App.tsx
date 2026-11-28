@@ -73,6 +73,25 @@ export default function App() {
   const [addCalendar, setAddCalendar] = useState<CalendarId>("hebrew");
   const t = STRINGS[locale];
 
+  // iPhone keyboard: iOS slides the whole screen up when a field gets focus, which pushed the
+  // event sheet above the top of the screen. The sheet follows the part actually visible
+  // (above the keyboard) instead, and the focused field is brought into view inside it.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    const update = () => {
+      root.style.setProperty("--vv-h", `${vv.height}px`);
+      root.style.setProperty("--vv-top", `${vv.offsetTop}px`);
+      const a = document.activeElement as HTMLElement | null;
+      if (a?.closest(".sheet") && vv.height < window.innerHeight - 80) requestAnimationFrame(() => a.scrollIntoView({ block: "nearest" }));
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+  }, []);
+
   useEffect(() => {
     const saved = (() => { try { return localStorage.getItem("universal-calendar:locale"); } catch { return null; } })();
     if (saved === "he" || saved === "en") setLocale(saved);
