@@ -12,6 +12,7 @@ import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
 import type { HolidayOccurrence } from "@/core/holidays/types";
 import { JEWISH_COLOR } from "@/core/events/schema";
+import { formatTime, minutesOf } from "@/core/time/zoned";
 import { holidayInfo, holidayText } from "@/core/holidays/info";
 import { describeRule } from "@/core/events/describe";
 import { weekdayOf, type EpochDay } from "@/core/time/epochDay";
@@ -112,7 +113,9 @@ export function MonthView(p: Props) {
     const day = first + d - 1;
     const o = other.fromEpochDay(day);
     const showOtherMonth = o.day === 1 || d === 1;
-    const occ = p.occurrences.get(day) ?? [];
+    // All-day first, then by start time (Apple Calendar's order)
+    const at = (x: Occurrence) => { const ev = p.events.get(x.eventUid); return ev?.showWithoutTime === false ? minutesOf(x.startTime ?? ev.startTime ?? "00:00") : -1; };
+    const occ = [...(p.occurrences.get(day) ?? [])].sort((a, b) => at(a) - at(b));
     const hol = p.holidays.get(day) ?? [];
     const cls = ["cell", day === p.today && "today", day === p.selected && "selected", weekdayOf(day) === 6 && "shabbat",
       hol.some((h) => h.yomTov) && "yomtov-day"].filter(Boolean).join(" ");
@@ -176,6 +179,7 @@ export function MonthView(p: Props) {
                   onClick={() => p.onEventClick(ev.uid, day)}
                 >
                   {x.adjustment !== "none" && <span aria-hidden>↷ </span>}
+                  {ev.showWithoutTime === false && ev.startTime && <span className="chip-time">{formatTime(x.startTime ?? ev.startTime, locale)} </span>}
                   {x.title ?? ev.title}
                 </button>
               </li>

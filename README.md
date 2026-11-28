@@ -236,6 +236,19 @@ tests/               vitest suites
 Month codes follow Temporal: Hebrew `M01` Tishrei … `M05` Shevat, `M05L` Adar I, `M06` Adar/Adar II,
 `M07` Nisan … `M12` Elul; Gregorian `M01`–`M12`.
 
+Events are all-day unless `showWithoutTime` is `false` (Apple's *All-day* switch off); then they need a
+wall-clock time, a length and an IANA time zone:
+```json
+{ "title": "Seder", "start": { "calendar": "hebrew", "year": 5787, "monthCode": "M07", "day": 15 },
+  "showWithoutTime": false, "startTime": "19:30", "durationMinutes": 240, "timeZone": "Asia/Jerusalem",
+  "recurrenceRules": [{ "frequency": "yearly" }] }
+```
+The time stays the same local time on every occurrence, also across daylight-saving changes (a time that
+does not exist that day moves forward by the gap; one that happens twice takes the first). In `.ics` each
+timed occurrence gets its exact UTC start and end (no VTIMEZONE), and is marked busy; all-day ones keep DATE
+values and are free. One occurrence of a repeating timed event can have its own time ("This Event Only");
+switching *All-day* on or off applies to the whole series or all future events.
+
 ## License
 
 The Hebrew calendar engine, [Hebcal](https://github.com/hebcal/hebcal-es6), is licensed

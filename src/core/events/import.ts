@@ -27,9 +27,9 @@ interface FileShape { schemaVersion?: unknown; collections?: unknown; events?: u
 
 const norm = (s: string) => s.trim().toLocaleLowerCase();
 
-function eventKey(e: Pick<UCEvent, "collectionId" | "title" | "start" | "recurrenceRules">): string {
+function eventKey(e: Pick<UCEvent, "collectionId" | "title" | "start" | "recurrenceRules"> & { startTime?: string }): string {
   const s = e.start;
-  return JSON.stringify([e.collectionId, e.title.trim(), s.calendar, s.year, s.monthCode, s.day, e.recurrenceRules ?? []]);
+  return JSON.stringify([e.collectionId, e.title.trim(), s.calendar, s.year, s.monthCode, s.day, e.startTime ?? "", e.recurrenceRules ?? []]);
 }
 
 function cleanOverrides(raw: unknown): Record<string, OccurrenceOverride> | undefined {
@@ -45,6 +45,8 @@ function cleanOverrides(raw: unknown): Record<string, OccurrenceOverride> | unde
     if (typeof v.title === "string" && v.title.trim() && v.title.length <= 200) o.title = v.title.trim();
     if (typeof v.description === "string" && v.description.length <= 5000) o.description = v.description;
     if (v.start && validateEventInput({ title: "x", start: v.start }).ok) o.start = v.start as OccurrenceOverride["start"];
+    if (typeof v.startTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.startTime)) o.startTime = v.startTime;
+    if (Number.isInteger(v.durationMinutes) && (v.durationMinutes as number) >= 0 && (v.durationMinutes as number) <= 10080) o.durationMinutes = v.durationMinutes as number;
     if (Object.keys(o).length) { out[key] = o; n++; }
   }
   return n ? out : undefined;
@@ -98,6 +100,9 @@ export function importBackup(doc: EventStoreDocument, raw: unknown, newId: () =>
     const v = validateEventInput({
       title: raw?.title, description: raw?.description ?? undefined, start: raw?.start,
       recurrenceRules: raw?.recurrenceRules, collectionId,
+      ...(raw?.showWithoutTime === false
+        ? { showWithoutTime: false, startTime: raw.startTime, durationMinutes: raw.durationMinutes, timeZone: raw.timeZone }
+        : {}),
     });
     if (!v.ok) { result.errors.push(`${label}: ${v.errors.join(", ")}`); continue; }
     const key = eventKey({ ...v.value, collectionId });

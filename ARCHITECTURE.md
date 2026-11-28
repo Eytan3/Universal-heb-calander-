@@ -425,3 +425,12 @@ The per-browser holiday preferences of v2 are migrated once by the UI into that 
 if they were switched off). `buildCollectionsIcs(doc, ids, …)` is the one ICS builder for feeds and Export:
 regular calendars contribute their events, computed ones their generated entries (one per holiday and day,
 even if two computed calendars both produce it), with the same UIDs as the legacy `/holidays.ics`.
+
+## Times of day
+
+`UCEvent.showWithoutTime` is JSCalendar's all-day flag (default true). Timed events add `startTime`
+("HH:MM" wall clock), `durationMinutes` and `timeZone` (IANA). `src/core/time/zoned.ts` converts wall time to
+instants with Intl only (two-offset resolution: gaps move forward, overlaps take the first). Occurrences stay
+day-based; time is attached per occurrence (overrides may carry their own `startTime` / `durationMinutes`).
+ICS: timed series are materialised with exact UTC DTSTART/DTEND per occurrence, so DST never shifts them and no
+VTIMEZONE is needed; all-day daily/weekly series still use RRULE with DATE values.

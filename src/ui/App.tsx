@@ -13,11 +13,22 @@ import { readLegacyHolidayPrefs, readViewPrefs, saveViewPrefs, DEFAULT_VIEW, typ
 import { todayEpochDay, type EpochDay } from "@/core/time/epochDay";
 import { KeyboardHelp } from "./KeyboardHelp";
 import { EventEditor, type Scope } from "./EventEditor";
-import { STRINGS } from "./i18n";
+import { STRINGS, type Strings } from "./i18n";
 import { MonthView } from "./MonthView";
 import { SettingsDialog } from "./SettingsDialog";
 import { importFromFile } from "./importFile";
 import { BackIcon } from "./BackIcon";
+import { deviceTimeZone, endOf, formatTime, minutesOf } from "@/core/time/zoned";
+
+/** "10:00–11:30", "22:00–01:00 +1", "יום שלם"; the zone is named when it is not the device's own. */
+function timeLabel(ev: UCEvent, o: { startTime?: string; durationMinutes?: number }, locale: Locale, t: Strings): string {
+  if (ev.showWithoutTime !== false || !ev.startTime) return t.allDayLabel;
+  const start = o.startTime ?? ev.startTime;
+  const end = endOf(start, o.durationMinutes ?? ev.durationMinutes ?? 60);
+  const zone = ev.timeZone && ev.timeZone !== deviceTimeZone() ? ` (${ev.timeZone.split("/").pop()!.replace(/_/g, " ")})` : "";
+  const range = (o.durationMinutes ?? ev.durationMinutes) === 0 ? formatTime(start, locale) : `${formatTime(start, locale)}–${formatTime(end.hhmm, locale)}${end.dayOffset ? " +1" : ""}`;
+  return range + zone;
+}
 import { isPreview } from "./preview";
 import { applyTheme, readTheme, type Theme } from "./theme";
 import { DEFAULT_JEWISH_SETTINGS, isComputed, JEWISH_COLLECTION_ID, JEWISH_COLOR } from "@/core/events/schema";
@@ -181,7 +192,15 @@ export default function App() {
   }, [holidaysIn, ym, primary]);
 
   // The day list (like Apple Calendar's list under the month): occurrences on the selected day.
-  const dayEvents = useMemo(() => (selected === null ? [] : expandAll(events, { start: selected, end: selected + 1 })), [events, selected]);
+  // All-day first, then by start time (as in Apple Calendar's list).
+  const dayEvents = useMemo(() => {
+    if (selected === null) return [];
+    const start = (o: { eventUid: string; startTime?: string }) => {
+      const ev = eventsByUid.get(o.eventUid);
+      return ev?.showWithoutTime === false ? minutesOf(o.startTime ?? ev.startTime ?? "00:00") : -1;
+    };
+    return expandAll(events, { start: selected, end: selected + 1 }).sort((a, b) => start(a) - start(b));
+  }, [events, selected, eventsByUid]);
   const dayHolidays = selected === null ? [] : monthHolidays.get(selected) ?? holidaysIn(selected, selected + 1).get(selected) ?? [];
 
   if (today === null || !ym) return <main className="loading">{t.loading}</main>;
@@ -408,9 +427,10 @@ export default function App() {
                       <button type="button" className="up-item" style={{ "--c": colors.get(ev.collectionId) } as React.CSSProperties}
                         onClick={() => openEvent(ev.uid, o.epochDay)}>
                         <span className="up-title" dir="auto">{o.title ?? ev.title}</span>
-                        <span className="up-when">{(() => { const c = doc.collections.find((x) => x.id === ev.collectionId); return c ? displayName(c, t) : ""; })()} · {native.calendarName(locale)}</span>
+                        <span className={`up-when${ev.showWithoutTime === false ? " timed" : ""}`}>{timeLabel(ev, o, locale, t)}</span>
                         <span className="up-dates" dir="auto">
-                          {describeRule(ev, locale)}
+                          {(() => { const c = doc.collections.find((x) => x.id === ev.collectionId); return c ? `${displayName(c, t)} · ` : ""; })()}
+                          {native.calendarName(locale)} · {describeRule(ev, locale)}
                           {o.adjustment !== "none" && ` · ${t.occurrenceAdjusted}`}
                           {(o.description ?? ev.description) ? ` · ${o.description ?? ev.description}` : ""}
                         </span>

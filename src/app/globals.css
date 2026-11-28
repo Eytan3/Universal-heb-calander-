@@ -499,3 +499,16 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 .pick-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; flex: none; }
 /* A computed calendar in a colour of its own: its holidays take that colour (readable in both themes) */
 .holiday[style*="--hc"], .holiday-card[style*="--hc"] { --holiday: color-mix(in srgb, var(--hc) 78%, var(--ink)); }
+
+/* iOS-style switch (All-day) */
+.switch { appearance: none; -webkit-appearance: none; width: 3.1rem; height: 1.9rem; border-radius: 999px; background: var(--fill-strong, rgb(120 120 128 / 0.32));
+  position: relative; cursor: pointer; flex: none; margin-inline-start: auto; transition: background 0.2s; }
+.switch::after { content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: calc(1.9rem - 4px); height: calc(1.9rem - 4px); border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 6px rgb(0 0 0 / 0.2); transition: inset-inline-start 0.2s; }
+.switch:checked { background: #34c759; }
+.switch:checked::after { inset-inline-start: calc(100% - 1.9rem + 2px); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.time-input { margin-inline-start: auto; border: 0; background: var(--fill); border-radius: 8px; padding: 0.3rem 0.55rem; font: inherit; font-weight: 600; color: inherit; direction: ltr; }
+.tz-select { max-width: 60%; }
+.up-when.timed { color: var(--ink); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.chip-time { font-weight: 800; font-variant-numeric: tabular-nums; }

@@ -136,6 +136,12 @@ export function applyOccurrenceAction(
     if (input.title !== ev.title) ov.title = input.title;
     if ((input.description ?? "") !== (ev.description ?? "")) ov.description = input.description ?? "";
     if (getCalendar(input.start.calendar).toEpochDay(input.start) !== recurrenceId) ov.start = { ...input.start };
+    if (ev.showWithoutTime === false && input.showWithoutTime === false) {
+      if (input.startTime && input.startTime !== ev.startTime) ov.startTime = input.startTime;
+      if (input.durationMinutes !== undefined && input.durationMinutes !== ev.durationMinutes) ov.durationMinutes = input.durationMinutes;
+    } else if ((input.showWithoutTime === false) !== (ev.showWithoutTime === false)) {
+      throw new StoreError("switching all-day on or off applies to the whole series (or all future events)", 400);
+    }
     const next = { ...(ev.recurrenceOverrides ?? {}) };
     if (Object.keys(ov).length) next[key] = ov; else delete next[key];
     if (Object.keys(next).length > MAX_OVERRIDES) throw new StoreError("too many changed occurrences", 409);

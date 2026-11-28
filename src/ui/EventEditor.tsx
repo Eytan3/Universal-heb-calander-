@@ -13,6 +13,7 @@ import { describeRule } from "@/core/events/describe";
 import { expandEvent, ruleMayHitMissingDate } from "@/core/events/expand";
 import { createEvent, FREQUENCIES, validateEventInput, type EventInput, type Frequency, type UCEvent } from "@/core/events/schema";
 import type { EpochDay } from "@/core/time/epochDay";
+import { deviceTimeZone, endOf, minutesOf } from "@/core/time/zoned";
 import type { Strings } from "./i18n";
 import { YearInput } from "./YearInput";
 
@@ -26,13 +27,21 @@ interface Props {
   onSave: (input: EventInput, scope?: Scope) => Promise<void>;
   onDelete?: (scope?: Scope) => Promise<void>;
   /** The occurrence that was clicked, for repeating events. */
-  occurrence?: { recurrenceId: EpochDay; native: CalendarDate; title?: string; description?: string };
+  occurrence?: { recurrenceId: EpochDay; native: CalendarDate; title?: string; description?: string; startTime?: string; durationMinutes?: number };
   onClose: () => void;
   collections: { id: string; name: string; color: string }[];
   defaultCollectionId: string;
 }
 
 export type Scope = "this" | "future";
+
+/** Every IANA zone the browser knows (or a short list), always including the current one. */
+function timeZoneOptions(current: string): string[] {
+  let all: string[] = [];
+  try { all = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? []; } catch { /* old browser */ }
+  if (!all.length) all = ["Asia/Jerusalem", "Europe/London", "Europe/Paris", "America/New_York", "America/Chicago", "America/Los_Angeles", "UTC"];
+  return all.includes(current) ? all : [current, ...all];
+}
 
 type Preset = "never" | "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "custom";
 const PRESETS: Record<Exclude<Preset, "never" | "custom">, { frequency: Frequency; interval: number }> = {
@@ -95,6 +104,13 @@ export function EventEditor(p: Props) {
   const [until, setUntil] = useState<CalendarDate | null>(exRule?.until ?? null);
   const [skip, setSkip] = useState<SkipPolicy>(exRule?.skip ?? "forward");
   const [collectionId, setCollectionId] = useState(ex?.collectionId ?? p.defaultCollectionId);
+  // Apple's "All-day" switch: on by default; off shows start and end times (in the event's time zone).
+  const [allDay, setAllDay] = useState(ex ? ex.showWithoutTime !== false : true);
+  const [startTime, setStartTime] = useState(occ?.startTime ?? ex?.startTime ?? "09:00");
+  const [endTime, setEndTime] = useState(() => endOf(occ?.startTime ?? ex?.startTime ?? "09:00", occ?.durationMinutes ?? ex?.durationMinutes ?? 60).hhmm);
+  const [timeZone, setTimeZone] = useState(ex?.timeZone ?? deviceTimeZone());
+  /** End before start = it ends the next day (e.g. 22:00–01:00). */
+  const durationMinutes = ((minutesOf(endTime) - minutesOf(startTime)) + 1440) % 1440;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,6 +133,7 @@ export function EventEditor(p: Props) {
     description: description || undefined,
     start: date,
     collectionId,
+    ...(allDay ? {} : { showWithoutTime: false, startTime, durationMinutes, timeZone }),
     recurrenceRules: frequency
       ? [{
           "@type": "RecurrenceRule", frequency, interval, rscale: date.calendar,
@@ -150,7 +167,8 @@ export function EventEditor(p: Props) {
 
   // Changing how the event repeats can only apply from this occurrence on (as in Apple Calendar).
   const ruleChanged = Boolean(exRule) && (
-    frequency !== exRule!.frequency || interval !== (exRule!.interval ?? 1) || date.calendar !== ex!.start.calendar
+    allDay !== (ex!.showWithoutTime !== false)
+    || frequency !== exRule!.frequency || interval !== (exRule!.interval ?? 1) || date.calendar !== ex!.start.calendar
     || JSON.stringify(untilDate ?? null) !== JSON.stringify(exRule!.until ?? null)
     || ((frequency === "monthly" || frequency === "yearly") && skip !== (exRule!.skip ?? "omit")));
 
@@ -218,6 +236,35 @@ export function EventEditor(p: Props) {
               {cal.formatDate(date, locale)}
               {otherCals.map((oc) => <span key={oc.id}> · {oc.formatDate(oc.fromEpochDay(cal.toEpochDay(date)), locale)}</span>)}
             </div>
+            <label className="row">
+              <span className="row-label">{t.allDay}</span>
+              <input type="checkbox" role="switch" className="switch" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} aria-label={t.allDay} />
+            </label>
+            {!allDay && (
+              <>
+                <label className="row">
+                  <span className="row-label">{t.starts}</span>
+                  <input type="time" className="time-input" value={startTime} required step={300}
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const keep = durationMinutes; // moving the start keeps the length, like Apple Calendar
+                      setStartTime(e.target.value);
+                      setEndTime(endOf(e.target.value, keep).hhmm);
+                    }} />
+                </label>
+                <label className="row">
+                  <span className="row-label">{t.ends}</span>
+                  <input type="time" className="time-input" value={endTime} required step={300} onChange={(e) => e.target.value && setEndTime(e.target.value)} />
+                </label>
+                {minutesOf(endTime) < minutesOf(startTime) && <div className="row sub">{t.endsNextDay}</div>}
+                <label className="row">
+                  <span className="row-label">{t.timeZone}</span>
+                  <select className="row-select tz-select" value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
+                    {timeZoneOptions(timeZone).map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
+                  </select>
+                </label>
+              </>
+            )}
           </section>
 
           <section className="group">

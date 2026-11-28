@@ -24,6 +24,9 @@ export interface Occurrence {
   title?: string;
   description?: string;
   overridden?: boolean;
+  /** Timed events: this occurrence's own time (from an override), else the event's. */
+  startTime?: string;
+  durationMinutes?: number;
 }
 
 export interface Range {
@@ -76,7 +79,7 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
     const ov = overrides[String(o.epochDay)];
     if (!ov) { out.push(o); continue; }
     if (ov.excluded || ov.start) continue; // deleted, or moved (placed below by its new day)
-    out.push({ ...o, title: ov.title, description: ov.description, overridden: true });
+    out.push({ ...o, title: ov.title, description: ov.description, startTime: ov.startTime, durationMinutes: ov.durationMinutes, overridden: true });
   }
   for (const [id, ov] of Object.entries(overrides)) {
     if (ov.excluded || !ov.start) continue;
@@ -85,7 +88,8 @@ export function expandEvent(event: UCEvent, range: Range): Occurrence[] {
     const rid = Number(id);
     const original = expandSeries(event, { start: rid, end: rid + 1 }).find((o) => o.epochDay === rid);
     if (!original) continue; // the rule no longer produces this occurrence
-    out.push({ ...original, recurrenceId: rid, epochDay: moved, native: ov.start, title: ov.title, description: ov.description, overridden: true });
+    out.push({ ...original, recurrenceId: rid, epochDay: moved, native: ov.start, title: ov.title, description: ov.description,
+      startTime: ov.startTime, durationMinutes: ov.durationMinutes, overridden: true });
   }
   return out.sort((a, b) => a.epochDay - b.epochDay);
 }

@@ -19,6 +19,7 @@ import { describeRule } from "../events/describe";
 import { expandAll, type Range } from "../events/expand";
 import { isComputed, type EventStoreDocument, type UCEvent } from "../events/schema";
 import { computedOccurrences } from "../holidays/computed";
+import { icsUtcDateTime, zonedToUtc } from "../time/zoned";
 
 export interface IcsOptions {
   range: Range;
@@ -66,7 +67,16 @@ function icsUtc(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-function veventHead(ev: UCEvent, uid: string, day: EpochDay): string[] {
+type Timing = { startTime: string; durationMinutes: number; timeZone: string };
+
+/** All-day → DATE values; timed → exact UTC instants for that day's wall-clock time in the event's zone. */
+function veventHead(ev: UCEvent, uid: string, day: EpochDay, timing?: Timing): string[] {
+  const when = timing
+    ? (() => {
+        const start = zonedToUtc(day, timing.startTime, timing.timeZone);
+        return [`DTSTART:${icsUtcDateTime(start)}`, `DTEND:${icsUtcDateTime(start + timing.durationMinutes * 60000)}`];
+      })()
+    : [`DTSTART;VALUE=DATE:${icsDate(day)}`, `DTEND;VALUE=DATE:${icsDate(day + 1)}`];
   return [
     "BEGIN:VEVENT",
     `UID:${uid}`,
@@ -74,12 +84,17 @@ function veventHead(ev: UCEvent, uid: string, day: EpochDay): string[] {
     `LAST-MODIFIED:${icsUtc(ev.updated)}`,
     `CREATED:${icsUtc(ev.created)}`,
     `SEQUENCE:${ev.sequence}`,
-    `DTSTART;VALUE=DATE:${icsDate(day)}`,
-    `DTEND;VALUE=DATE:${icsDate(day + 1)}`,
+    ...when,
     `SUMMARY:${escapeText(ev.title)}`,
-    "TRANSP:TRANSPARENT",
+    // An all-day reminder does not make you busy; a timed appointment does (as in Apple Calendar).
+    timing ? "TRANSP:OPAQUE" : "TRANSP:TRANSPARENT",
   ];
 }
+
+const timingOf = (ev: UCEvent, occ?: { startTime?: string; durationMinutes?: number }): Timing | undefined =>
+  ev.showWithoutTime === false && ev.startTime && ev.timeZone
+    ? { startTime: occ?.startTime ?? ev.startTime, durationMinutes: occ?.durationMinutes ?? ev.durationMinutes ?? 60, timeZone: ev.timeZone }
+    : undefined;
 
 function calendarHead(name: string, refresh: string): string[] {
   return [
@@ -107,9 +122,12 @@ export function eventLines(events: UCEvent[], opts: Pick<IcsOptions, "range" | "
   const byUid = new Map(events.map((e) => [e.uid, e]));
   const lines: string[] = [];
 
+  // All-day daily/weekly series go out as a plain RRULE. Timed ones are materialised like the rest: each
+  // occurrence gets its own exact UTC time, so a 10:00 meeting stays at 10:00 local across DST changes
+  // without any VTIMEZONE (which clients handle inconsistently).
   const isFixedStep = (e: UCEvent) => {
     const f = e.recurrenceRules?.[0]?.frequency;
-    return f === "daily" || f === "weekly";
+    return (f === "daily" || f === "weekly") && e.showWithoutTime !== false;
   };
 
   // Daily / weekly rules are the same in every calendar, so they are exported as a standard
@@ -154,15 +172,17 @@ export function eventLines(events: UCEvent[], opts: Pick<IcsOptions, "range" | "
     const ev = byUid.get(occ.eventUid)!;
     const cal = getCalendar(ev.start.calendar);
     const nativeEn = cal.formatDate(occ.native, "en");
+    const timing = timingOf(ev, occ);
     const descParts = [
       `${cal.calendarName("en")} date: ${nativeEn}`,
+      timing ? `Time: ${timing.startTime} (${timing.timeZone})` : null,
       ev.start.calendar === "hebrew" ? `תאריך עברי: ${cal.formatDate(occ.native, "he")}` : null,
       `Rule: ${describeRule(ev, "en")}`,
       occ.description ?? ev.description ?? null,
     ].filter(Boolean) as string[];
 
     lines.push(
-      ...veventHead({ ...ev, title: occ.title ?? ev.title }, `${ev.uid}.${occ.key}@${domain}`, occ.epochDay),
+      ...veventHead({ ...ev, title: occ.title ?? ev.title }, `${ev.uid}.${occ.key}@${domain}`, occ.epochDay, timing),
       `DESCRIPTION:${escapeText(descParts.join("\n"))}`,
       `X-UNIVERSAL-CALENDAR-NATIVE-DATE:${occ.native.calendar}:${occ.native.year}-${occ.native.monthCode}-${String(occ.native.day).padStart(2, "0")}`,
       "END:VEVENT",

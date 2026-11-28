@@ -15,6 +15,7 @@ import { getCalendar, isCalendarId } from "../calendars/registry";
 import type { CalendarDate, CalendarId, SkipPolicy } from "../calendars/types";
 
 import { HOLIDAY_CATEGORIES, type HolidayCategory } from "../holidays/types";
+import { HHMM_PATTERN, isValidTimeZone } from "../time/zoned";
 
 export const SCHEMA_VERSION = 3 as const;
 
@@ -97,6 +98,9 @@ export interface OccurrenceOverride {
   title?: string;
   description?: string;
   start?: CalendarDate;
+  /** Timed events: a different time for this occurrence only. */
+  startTime?: string;
+  durationMinutes?: number;
 }
 
 export interface UCEvent {
@@ -104,9 +108,15 @@ export interface UCEvent {
   uid: string;
   title: string;
   description?: string;
-  /** JSCalendar's all-day flag. v1 supports all-day events only. */
-  showWithoutTime: true;
+  /** JSCalendar's all-day flag: true = all day (the default); false = at a time of day. */
+  showWithoutTime: boolean;
   start: CalendarDate;
+  /** Timed events only: wall-clock start "HH:MM" in `timeZone`, kept on every occurrence (DST-safe). */
+  startTime?: string;
+  /** Timed events only: length in minutes (0 … 7 days). */
+  durationMinutes?: number;
+  /** Timed events only: IANA time zone the times are in, e.g. "Asia/Jerusalem". */
+  timeZone?: string;
   recurrenceRules?: RecurrenceRule[];
   /** The user calendar (collection) this event belongs to. */
   collectionId: string;
@@ -134,6 +144,11 @@ export interface EventInput {
   title: string;
   description?: string;
   start: CalendarDate;
+  /** Default true (all day). When false, startTime / durationMinutes / timeZone are required. */
+  showWithoutTime?: boolean;
+  startTime?: string;
+  durationMinutes?: number;
+  timeZone?: string;
   recurrenceRules?: RecurrenceRule[];
   /** Defaults to the first collection; existence is checked against the store. */
   collectionId?: string;
@@ -208,6 +223,19 @@ export function validateEventInput(raw: unknown): ValidationResult<EventInput> {
     }
   }
 
+  // Time of day (Apple's "All-day" switch): absent / true = all day.
+  let timed: { startTime: string; durationMinutes: number; timeZone: string } | undefined;
+  if (o.showWithoutTime === false) {
+    const startTime = typeof o.startTime === "string" ? o.startTime : "";
+    if (!HHMM_PATTERN.test(startTime)) errors.push("startTime must be HH:MM (00:00–23:59)");
+    const durationMinutes = o.durationMinutes === undefined ? 60 : Number(o.durationMinutes);
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 0 || durationMinutes > 7 * 1440) errors.push("durationMinutes must be 0–10080");
+    if (!isValidTimeZone(o.timeZone)) errors.push("timeZone must be an IANA time zone, e.g. Asia/Jerusalem");
+    if (HHMM_PATTERN.test(startTime) && isValidTimeZone(o.timeZone)) timed = { startTime, durationMinutes, timeZone: o.timeZone };
+  } else if (o.showWithoutTime !== undefined && o.showWithoutTime !== true) {
+    errors.push("showWithoutTime must be true or false");
+  }
+
   let collectionId: string | undefined;
   if (o.collectionId !== undefined && o.collectionId !== null && o.collectionId !== "") {
     if (typeof o.collectionId !== "string" || !UID_PATTERN.test(o.collectionId)) errors.push("collectionId is invalid");
@@ -215,7 +243,14 @@ export function validateEventInput(raw: unknown): ValidationResult<EventInput> {
   }
 
   if (errors.length) return { ok: false, errors };
-  return { ok: true, value: { title, description, start: start!, recurrenceRules, ...(collectionId ? { collectionId } : {}) } };
+  return {
+    ok: true,
+    value: {
+      title, description, start: start!, recurrenceRules,
+      ...(timed ? { showWithoutTime: false, ...timed } : {}),
+      ...(collectionId ? { collectionId } : {}),
+    },
+  };
 }
 
 export function createEvent(input: EventInput, uid: string, now: Date = new Date()): UCEvent {
@@ -225,8 +260,11 @@ export function createEvent(input: EventInput, uid: string, now: Date = new Date
     uid,
     title: input.title,
     ...(input.description ? { description: input.description } : {}),
-    showWithoutTime: true,
+    showWithoutTime: input.showWithoutTime === false ? false : true,
     start: { ...input.start },
+    ...(input.showWithoutTime === false
+      ? { startTime: input.startTime, durationMinutes: input.durationMinutes ?? 60, timeZone: input.timeZone }
+      : {}),
     ...(input.recurrenceRules?.length ? { recurrenceRules: input.recurrenceRules } : {}),
     collectionId: input.collectionId ?? DEFAULT_COLLECTION_ID,
     created: ts,
