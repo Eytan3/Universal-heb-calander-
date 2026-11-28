@@ -72,24 +72,29 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() => (typeof window === "undefined" ? "system" : readTheme()));
   const [addCalendar, setAddCalendar] = useState<CalendarId>("hebrew");
   const t = STRINGS[locale];
+  // Phone day list: holiday cards show just their title; a tap opens the explanation
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+  const toggleCard = (id: string) => setOpenCards((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  // iPhone keyboard: iOS slides the whole screen up when a field gets focus, which pushed the
-  // event sheet above the top of the screen. The sheet follows the part actually visible
-  // (above the keyboard) instead, and the focused field is brought into view inside it.
+  // iPhone keyboard: iOS slides the whole screen up when the field you tap would end up under the
+  // keyboard. To keep everything still, a field in the lower half of a sheet is scrolled up to just
+  // under the sheet's title bar the moment it is touched — before the keyboard opens — so iOS has
+  // no reason to move anything. (Room to scroll is added below the fields once typing starts.)
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const root = document.documentElement;
-    const update = () => {
-      root.style.setProperty("--vv-h", `${vv.height}px`);
-      root.style.setProperty("--vv-top", `${vv.offsetTop}px`);
-      const a = document.activeElement as HTMLElement | null;
-      if (a?.closest(".sheet") && vv.height < window.innerHeight - 80) requestAnimationFrame(() => a.scrollIntoView({ block: "nearest" }));
+    const FIELD = ".sheet input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=time]), .sheet textarea, .sheet select";
+    const onDown = (e: PointerEvent) => {
+      if (!window.matchMedia("(max-width: 600px)").matches) return;
+      const f = (e.target as Element | null)?.closest?.(FIELD) as HTMLElement | null;
+      const sheet = f?.closest(".sheet") as HTMLElement | null;
+      if (!f || !sheet) return;
+      sheet.classList.add("typing");
+      const r = f.getBoundingClientRect();
+      if (r.bottom <= window.innerHeight * 0.45) return;
+      const barBottom = sheet.querySelector(".sheet-bar")?.getBoundingClientRect().bottom ?? sheet.getBoundingClientRect().top;
+      sheet.scrollTop += r.top - barBottom - 12;
     };
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, []);
 
   useEffect(() => {
@@ -424,7 +429,8 @@ export default function App() {
                   const info = holidayInfo(h.id);
                   const link = holidayLink(h.id, locale);
                   return (
-                    <li key={h.id + (h.at ?? "")} className={`holiday-card hcat-${h.category}`}
+                    <li key={h.id + (h.at ?? "")} className={`holiday-card hcat-${h.category}${info ? " has-info" : ""}${openCards.has(h.id) ? " open" : ""}`}
+                      onClick={(e) => { if (info && !(e.target as Element).closest("a")) toggleCard(h.id); }}
                       style={h.color && h.color !== JEWISH_COLOR ? ({ "--hc": h.color } as React.CSSProperties) : undefined}>
                       <span className="holiday-icon" aria-hidden>{info?.emoji ?? "✡"}</span>
                       <div className="holiday-body">

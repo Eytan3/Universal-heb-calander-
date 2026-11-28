@@ -326,9 +326,9 @@ textarea.row-input { resize: vertical; min-height: 4.5rem; max-height: 40vh; }
   /* Sheets rise from the bottom */
   /* Sheets rise from the bottom but always fill the screen from just under the status bar, like iOS:
      the title bar (Cancel / Add) and the first fields are at the top, never under the keyboard. */
-  .sheet-backdrop { place-items: stretch; padding: calc(env(safe-area-inset-top) + 0.6rem) 0 0;
-    /* Exactly the visible part of the screen: above the keyboard when it is open (set from visualViewport) */
-    inset: auto 0; top: var(--vv-top, 0px); height: var(--vv-h, 100%); }
+  .sheet-backdrop { place-items: stretch; padding: calc(env(safe-area-inset-top) + 0.6rem) 0 0; }
+  /* While typing: room below the last field, so any field can be scrolled up above the keyboard */
+  .sheet.typing .sheet-body { padding-bottom: 80vh; }
   .sheet { width: 100%; height: 100%; max-height: none; border-radius: 16px 16px 0 0; animation: sheet-up 260ms cubic-bezier(.2, .8, .2, 1); }
   .sheet-body { padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
   .grabber { display: block; }
@@ -463,16 +463,17 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .weekday { font-size: 0.78rem; padding: 0.25rem 0 0.4rem; border-bottom: 0.5px solid var(--line); }
   /* Every month takes the room of six weeks (iOS does the same), so the day list below never moves:
      rows have one fixed height and the grid area is always 6 rows tall, whatever the month. */
-  :root { --row-h: 3.85rem; }
+  /* Compact, like iOS month + list: the grid gives room to the day's events below */
+  :root { --row-h: 3rem; }
   .grid-wrap { height: calc(6 * var(--row-h)); }
   .grid { grid-auto-rows: var(--row-h); }
-  .cell { min-height: 0; height: var(--row-h); overflow: hidden; padding: 0.3rem 0.05rem 0.3rem; border-top: 0; }
+  .cell { min-height: 0; height: var(--row-h); overflow: hidden; padding: 0.15rem 0.05rem; border-top: 0; }
   .cell-head { gap: 0; }
-  .primary { --dot: 2.35rem; font-size: 1.4rem; font-weight: 700; }
-  .primary[data-len="long"] { font-size: 1.16rem; }
-  .secondary { font-size: 0.72rem; font-weight: 600; }
+  .primary { --dot: 1.85rem; font-size: 1.15rem; font-weight: 700; }
+  .primary[data-len="long"] { font-size: 1rem; }
+  .secondary { font-size: 0.64rem; font-weight: 600; line-height: 1.1; margin-top: 2px; }
   .cell .holidays, .cell .chips { display: none; }
-  .daybar { display: flex; width: 72%; height: 6px; margin: 4px auto 0; border-radius: 3px; overflow: hidden; gap: 1px; }
+  .daybar { display: flex; width: 64%; height: 4px; margin: 2px auto 0; border-radius: 2px; overflow: hidden; gap: 1px; }
   .daybar i { flex: 1; background: var(--c); }
   /* Week rows separated by a hairline, like iOS */
   .grid > .cell { box-shadow: inset 0 0.5px 0 var(--line); }
@@ -487,13 +488,27 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
   .up-title { font-size: 1.12rem; }
   /* A festival day reads at a glance: its number takes the holiday colour (not on today / the selected day) */
   .cell.yomtov-day:not(.today):not(.selected) .primary { color: var(--holiday); }
+  /* Day list, like iOS: just the title (and time) — details are one tap away, in the event */
+  .up-item { grid-template-areas: "bar title when"; padding: 0.62rem 0.9rem; }
+  .up-dates { display: none; }
+  /* Holiday cards: the title only; tap to read the explanation */
+  .holiday-card { padding: 0.6rem 0.9rem; align-items: center; gap: 0.7rem; }
+  .holiday-icon { width: 1.9rem; height: 1.9rem; font-size: 1.05rem; }
+  .holiday-card:not(.open) .holiday-body > p, .holiday-card:not(.open) .holiday-body > a { display: none; }
+  .holiday-card.has-info { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .holiday-card.has-info .holiday-body { flex: 1; }
+  .holiday-card.has-info::after { content: ""; flex: none; width: 0.5rem; height: 0.5rem; margin-inline-end: 0.2rem;
+    border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform 0.2s; align-self: center; }
+  .holiday-card.has-info.open::after { transform: rotate(-135deg); }
+  .holiday-card.open { align-items: flex-start; }
   /* The mouse hint (click / double-click) means nothing on a touch screen */
   .day-hint { display: none; }
 }
 /* Short iPhones (SE, mini): slightly shorter weeks so the day list keeps room */
 @media (max-width: 600px) and (max-height: 720px) {
-  :root { --row-h: 3.1rem; }
-  .primary { --dot: 2rem; font-size: 1.2rem; }
+  :root { --row-h: 2.7rem; }
+  .primary { --dot: 1.75rem; font-size: 1.08rem; }
+  .secondary { font-size: 0.6rem; }
   .primary[data-len="long"] { font-size: 1rem; }
 }
 
