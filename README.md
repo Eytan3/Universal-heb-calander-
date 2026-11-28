@@ -27,6 +27,10 @@ and its occurrences appear on the correct day in every calendar view and in an A
   for every Shabbat and Yom Tov, including second days (lit after nightfall) and Yom Tov on Friday. Sunset is
   computed by our own implementation of NOAA's solar algorithm — verified against Hebcal: every one of 3,402
   candle-lighting and havdalah times over two years in seven cities matches to the minute.
+- **Weekly Torah portion, special Shabbatot and the Omer** as optional categories of a computed calendar —
+  Israel or diaspora, our own rules (fixed points: Tzav before Pesach in a common year, Bamidbar before
+  Shavuot, Devarim before Tisha B'Av, Nitzavim before Rosh Hashana; pairs joined only when needed).
+  Verified against Hebcal for 60 years: all 5,976 portions, 549 special Shabbatot and 2,989 Omer days match.
 - A JSON event store (documented schema) on disk locally, or in Redis on Vercel.
 - A live ICS feed (`/calendar.ics`) with stable UIDs, for Apple Calendar subscriptions.
 - English (LTR) and Hebrew (RTL) interface, light and dark, in a design language inspired by iOS

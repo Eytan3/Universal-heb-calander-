@@ -121,7 +121,8 @@ export function MonthView(p: Props) {
       hol.some((h) => h.yomTov) && "yomtov-day"].filter(Boolean).join(" ");
     // Phone (compact) view: one rounded strip under the day, split into segments — the holiday colour first,
     // then one segment per event in its calendar's colour (at most four).
-    const dayHol = hol.filter((h) => h.category !== "zmanim"); // the weekly Shabbat times would mark every Friday
+    // Weekly / daily entries (Shabbat times, portion, Omer) would mark half the month: holidays only.
+    const dayHol = hol.filter((h) => h.category !== "zmanim" && h.category !== "parasha" && h.category !== "omer" && h.category !== "special");
     const dotColors = [...(dayHol.length ? [dayHol[0].color ?? "var(--holiday)"] : []),
       ...occ.map((x) => p.colors.get(p.events.get(x.eventUid)?.collectionId ?? "") ?? "var(--hebrew)")].slice(0, 4);
     const nativeDate: CalendarDate = { calendar: cal.id, year: ym.year, monthCode: ym.monthCode, day: d };

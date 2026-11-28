@@ -2,6 +2,8 @@
  * Our rule-based holidays vs Hebcal (@hebcal/core, a dev-only oracle) — every holiday we
  * define, every Hebrew year 5710–5899, Israel and diaspora. Any difference fails the test.
  */
+import { jewishCollection } from "@/core/events/schema";
+import { computedOccurrences } from "@/core/holidays/computed";
 import { describe, expect, it } from "vitest";
 import { HebrewCalendar } from "@hebcal/core";
 import { hebrew } from "@/core/calendars/registry";
@@ -63,10 +65,11 @@ describe("holiday options", () => {
   it("no categories → a clean calendar", () => {
     expect(jewishHolidays.occurrences(year, { region: "il", categories: [] })).toEqual([]);
   });
-  it("each category can be shown on its own", () => {
+  it("each category can be shown on its own (through a computed calendar)", () => {
     for (const c of HOLIDAY_CATEGORIES) {
-      const occ = jewishHolidays.occurrences(year, { region: "il", categories: [c as HolidayCategory] });
-      expect(occ.length).toBeGreaterThan(0);
+      const cal = { ...jewishCollection(), jewish: { region: "il" as const, categories: [c as HolidayCategory] } };
+      const occ = computedOccurrences(cal, year);
+      expect(occ.length, c).toBeGreaterThan(0);
       expect(occ.every((o) => o.category === c)).toBe(true);
     }
   });

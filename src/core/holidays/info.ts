@@ -15,6 +15,24 @@ export interface HolidayInfo {
 const FAST = "🕯️";
 
 const INFO: Record<string, HolidayInfo> = {
+  parasha: {
+    emoji: "📜",
+    he: "פרשת השבוע הנקראת בתורה בשבת. בשנים מסוימות קוראים שתי פרשות יחד, ולפעמים בארץ קוראים פרשה שבחו״ל קוראים רק בשבוע הבא.",
+    en: "The weekly Torah portion read on Shabbat. In some years two portions are read together, and Israel is sometimes a week ahead of the diaspora.",
+    wiki: { he: "פרשת השבוע", en: "Weekly Torah portion" },
+  },
+  omer: {
+    emoji: "🌾",
+    he: "ספירת העומר: 49 ימים מליל השני של פסח ועד שבועות. סופרים בערב, מצאת הכוכבים, את היום שמתחיל.",
+    en: "Counting of the Omer: 49 days from the second night of Pesach to Shavuot, counted each evening at nightfall for the day that begins.",
+    wiki: { he: "ספירת העומר", en: "Counting of the Omer" },
+  },
+  special: {
+    emoji: "✨",
+    he: "שבת מיוחדת: שבת שבה קוראים קריאה או הפטרה מיוחדת — שובה, שירה, שקלים, זכור, פרה, החודש, הגדול, חזון ונחמו.",
+    en: "A special Shabbat with its own reading or haftarah — Shuva, Shirah, Shekalim, Zachor, Parah, HaChodesh, HaGadol, Chazon and Nachamu.",
+    wiki: { he: "שבתות מיוחדות", en: "Special Shabbat" },
+  },
   candles: {
     emoji: "🕯️",
     he: "הדלקת נרות שבת או חג, לפני השקיעה לפי מנהג המקום (בדרך כלל 20 דקות בארץ, 40 בירושלים, 30 בחיפה, 18 בחו״ל). כשחג נמשך ישירות משבת או מיום טוב קודם, מדליקים רק אחרי צאת הכוכבים.",
@@ -259,6 +277,7 @@ const INFO: Record<string, HolidayInfo> = {
 
 /** Which explanation a holiday rule id uses (multi-day festivals share one). */
 export function holidayInfoKey(id: string): string {
+  if (id.startsWith("special-")) return "special";
   if (/^rosh-hashana-\d$/.test(id)) return "rosh-hashana";
   if (id === "sukkot-7") return "hoshana-raba";
   if (/^sukkot-/.test(id)) return "sukkot";

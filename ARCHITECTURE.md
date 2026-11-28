@@ -445,3 +445,13 @@ last). A computed calendar's `jewish.zmanim` (place, candle minutes, havdalah) t
 exact instant (`at`) and the place's zone for display, and go to `.ics` as UTC moments. Verification:
 `scripts/zmanim-reference.mjs` (dev-only, uses @hebcal/core) writes `tests/fixtures/zmanim-hebcal.json`;
 `tests/zmanim.test.ts` requires identical results.
+
+## Torah portion, special Shabbatot, Omer
+
+`src/core/holidays/parasha.ts`: free Shabbatot (not festival / Chol HaMoed, per region) are filled in order
+between fixed points — Tzav on the last Shabbat before Pesach (common years), Bamidbar *by* Shavuot (a deadline:
+Israel may already read Nasso on its eve), Devarim on/before Tisha B'Av, Nitzavim on the last Shabbat of the year.
+When a stretch has fewer Shabbatot than portions, pairs are joined in their customary order of preference.
+Vayeilech joins Nitzavim exactly when the next Tishrei has only one free Shabbat before Bereshit.
+`extras.ts`: Omer day N on 15 Nisan + N; special Shabbatot by their date rules (Shirah = Beshalach).
+`scripts/extras-reference.mjs` → `tests/fixtures/extras-hebcal.json` (60 years) → `tests/extras.test.ts`.

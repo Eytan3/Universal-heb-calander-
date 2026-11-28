@@ -7,10 +7,10 @@ import type { CalendarId } from "../calendars/types";
 import type { EpochDay } from "../time/epochDay";
 import type { Range } from "../events/expand";
 
-export type HolidayCategory = "major" | "minor" | "fast" | "modern" | "roshchodesh";
+export type HolidayCategory = "major" | "minor" | "fast" | "modern" | "roshchodesh" | "parasha" | "special" | "omer";
 /** Display category of computed entries: holiday categories plus Shabbat & Yom Tov times. */
 export type EntryCategory = HolidayCategory | "zmanim";
-export const HOLIDAY_CATEGORIES: HolidayCategory[] = ["major", "minor", "fast", "modern", "roshchodesh"];
+export const HOLIDAY_CATEGORIES: HolidayCategory[] = ["major", "minor", "fast", "modern", "roshchodesh", "parasha", "special", "omer"];
 
 export interface HolidayOptions {
   /** Israel or diaspora observance (second festival days, Simchat Torah, …). */
