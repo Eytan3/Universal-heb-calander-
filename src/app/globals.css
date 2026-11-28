@@ -393,6 +393,9 @@ label.opt.disabled { opacity: 0.6; cursor: default; }
 /* No text caret outside editable fields (e.g. with the browser's caret browsing, F7), and no text
    selection when clicking or double-clicking days in the month grid. */
 body { caret-color: transparent; }
+/* Reserve the scrollbar's room always, so a taller day (e.g. one with a holiday card) never shifts the layout sideways. */
+html { scrollbar-gutter: stable; }
+.main-col > .day-list { scrollbar-gutter: stable; }
 input, textarea, select, [contenteditable] { caret-color: auto; }
 .grid { -webkit-user-select: none; user-select: none; }
 
