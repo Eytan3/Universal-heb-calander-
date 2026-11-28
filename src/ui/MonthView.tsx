@@ -11,6 +11,7 @@ import type { CalendarAdapter, CalendarDate, Locale, YearMonth } from "@/core/ca
 import type { Occurrence } from "@/core/events/expand";
 import type { UCEvent } from "@/core/events/schema";
 import type { HolidayOccurrence } from "@/core/holidays/types";
+import { JEWISH_COLOR } from "@/core/events/schema";
 import { holidayInfo, holidayText } from "@/core/holidays/info";
 import { describeRule } from "@/core/events/describe";
 import { weekdayOf, type EpochDay } from "@/core/time/epochDay";
@@ -117,7 +118,7 @@ export function MonthView(p: Props) {
       hol.some((h) => h.yomTov) && "yomtov-day"].filter(Boolean).join(" ");
     // Phone (compact) view: one rounded strip under the day, split into segments — the holiday colour first,
     // then one segment per event in its calendar's colour (at most four).
-    const dotColors = [...(hol.length ? ["var(--holiday)"] : []),
+    const dotColors = [...(hol.length ? [hol[0].color ?? "var(--holiday)"] : []),
       ...occ.map((x) => p.colors.get(p.events.get(x.eventUid)?.collectionId ?? "") ?? "var(--hebrew)")].slice(0, 4);
     const nativeDate: CalendarDate = { calendar: cal.id, year: ym.year, monthCode: ym.monthCode, day: d };
     cells.push(
@@ -153,6 +154,7 @@ export function MonthView(p: Props) {
           <ul className="holidays">
             {hol.map((h) => (
               <li key={h.id + h.epochDay} className={`holiday hcat-${h.category}${h.yomTov ? " yomtov" : ""}`} dir="auto"
+                style={h.color && h.color !== JEWISH_COLOR ? ({ "--hc": h.color } as React.CSSProperties) : undefined}
                 title={`${locale === "he" ? h.he : h.en} — ${holidayText(h.id, locale)}`}>
                 <span className="h-emoji" aria-hidden>{holidayInfo(h.id)?.emoji}</span> {locale === "he" ? h.he : h.en}
               </li>

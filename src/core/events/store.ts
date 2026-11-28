@@ -5,8 +5,8 @@
 import { getCalendar } from "../calendars/registry";
 import { expandEvent } from "./expand";
 import {
-  COLLECTION_COLORS, createEvent, MAX_OVERRIDES, updateEvent,
-  type CollectionInput, type EventInput, type EventStoreDocument, type OccurrenceOverride, type UCEvent,
+  COLLECTION_COLORS, createEvent, DEFAULT_JEWISH_SETTINGS, isComputed, MAX_OVERRIDES, updateEvent,
+  type Collection, type CollectionInput, type EventInput, type EventStoreDocument, type OccurrenceOverride, type UCEvent,
 } from "./schema";
 
 /** Hard caps so a public deployment cannot be filled up (storage cost / abuse). */
@@ -17,9 +17,16 @@ export class StoreError extends Error {
   constructor(message: string, public status: 400 | 404 | 409) { super(message); }
 }
 
+/** The first calendar that holds events (computed calendars have none). */
+export function defaultEventsCollection(doc: EventStoreDocument): string {
+  return (doc.collections.find((c) => !isComputed(c)) ?? doc.collections[0]).id;
+}
+
 function collectionFor(doc: EventStoreDocument, requested?: string): string {
-  const id = requested ?? doc.collections[0].id;
-  if (!doc.collections.some((c) => c.id === id)) throw new StoreError("collection not found", 400);
+  const id = requested ?? defaultEventsCollection(doc);
+  const c = doc.collections.find((x) => x.id === id);
+  if (!c) throw new StoreError("collection not found", 400);
+  if (isComputed(c)) throw new StoreError("events cannot be added to a computed calendar", 400);
   return id;
 }
 
@@ -46,7 +53,9 @@ export function removeEvent(doc: EventStoreDocument, uid: string): void {
 
 export function addCollection(doc: EventStoreDocument, input: CollectionInput, id: string, now = new Date()) {
   if (doc.collections.length >= MAX_COLLECTIONS) throw new StoreError(`limit of ${MAX_COLLECTIONS} calendars reached`, 409);
-  const c = { id, name: input.name, color: input.color, created: now.toISOString() };
+  const c: Collection = input.kind === "jewish"
+    ? { id, name: input.name, color: input.color, created: now.toISOString(), kind: "jewish", jewish: input.jewish ?? { ...DEFAULT_JEWISH_SETTINGS, categories: [...DEFAULT_JEWISH_SETTINGS.categories] } }
+    : { id, name: input.name, color: input.color, created: now.toISOString() };
   doc.collections.push(c);
   return c;
 }
@@ -54,15 +63,22 @@ export function addCollection(doc: EventStoreDocument, input: CollectionInput, i
 export function changeCollection(doc: EventStoreDocument, id: string, input: CollectionInput) {
   const c = doc.collections.find((x) => x.id === id);
   if (!c) throw new StoreError("collection not found", 404);
+  if (input.kind && input.kind !== (c.kind ?? "events")) throw new StoreError("a calendar's kind cannot change", 400);
   c.name = input.name;
   c.color = input.color;
+  if (input.jewish) {
+    if (!isComputed(c)) throw new StoreError("only computed calendars have Jewish-calendar settings", 400);
+    c.jewish = input.jewish;
+  }
   return c;
 }
 
-/** Deletes a collection and its events. The last remaining collection cannot be deleted. */
+/** Deletes a collection and its events. The last calendar that holds events cannot be deleted;
+ *  computed calendars can always be removed (for a clean calendar). */
 export function removeCollection(doc: EventStoreDocument, id: string): { removedEvents: number } {
-  if (!doc.collections.some((c) => c.id === id)) throw new StoreError("collection not found", 404);
-  if (doc.collections.length === 1) throw new StoreError("cannot delete the last calendar", 409);
+  const target = doc.collections.find((c) => c.id === id);
+  if (!target) throw new StoreError("collection not found", 404);
+  if (!isComputed(target) && doc.collections.filter((c) => !isComputed(c)).length === 1) throw new StoreError("cannot delete the last calendar", 409);
   const before = doc.events.length;
   doc.collections = doc.collections.filter((c) => c.id !== id);
   doc.events = doc.events.filter((e) => e.collectionId !== id);

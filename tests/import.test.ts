@@ -18,6 +18,20 @@ function backup(): unknown {
 }
 
 describe("import of a backup", () => {
+  it("brings computed calendars across with their settings, and never puts events into them", () => {
+    const src = emptyDocument();
+    addCollection(src, { name: "לוח ניו יורק", color: "#00897b", kind: "jewish", jewish: { region: "diaspora", categories: ["major", "fast"] } }, "ny");
+    const file = JSON.parse(JSON.stringify({ schemaVersion: 3, collections: src.collections, events: [
+      { title: "Sneaky", start: { calendar: "gregory", year: 2026, monthCode: "M01", day: 1 }, collectionId: "ny" },
+    ] }));
+    const doc = emptyDocument();
+    const r = importBackup(doc, file, id);
+    const ny = doc.collections.find((c) => c.name === "לוח ניו יורק")!;
+    expect(ny).toMatchObject({ kind: "jewish", jewish: { region: "diaspora", categories: ["major", "fast"] } });
+    expect(r.calendarsCreated).toBe(1); // the unnamed built-in one already exists
+    expect(doc.events[0].collectionId).toBe("personal");
+  });
+
   it("creates missing calendars, adds events with new uids and keeps overrides", () => {
     const doc: EventStoreDocument = emptyDocument();
     const r = importBackup(doc, backup(), id);
@@ -38,7 +52,7 @@ describe("import of a backup", () => {
     const r = importBackup(doc, backup(), id);
     expect(r).toMatchObject({ added: 0, skipped: 3, calendarsCreated: 0 });
     expect(doc.events).toHaveLength(3);
-    expect(doc.collections).toHaveLength(2);
+    expect(doc.collections).toHaveLength(3); // personal + the built-in Jewish calendar + "ימי הולדת"
   });
 
   it("matches existing calendars by name and never touches existing events", () => {
@@ -46,7 +60,7 @@ describe("import of a backup", () => {
     addCollection(doc, { name: " ימי הולדת ", color: "#00897b" }, "mine");
     doc.events.push(createEvent({ title: "Existing", start: { calendar: "gregory", year: 2026, monthCode: "M05", day: 5 } }, "keep"));
     importBackup(doc, backup(), id);
-    expect(doc.collections).toHaveLength(2);
+    expect(doc.collections).toHaveLength(3); // the existing "ימי הולדת" is reused, not duplicated
     expect(doc.events.filter((e) => e.collectionId === "mine")).toHaveLength(2);
     expect(doc.events.find((e) => e.uid === "keep")!.title).toBe("Existing");
   });

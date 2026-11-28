@@ -22,7 +22,7 @@ describe("storage backends", () => {
     expect(getStore().kind).toBe("file");
     await mutate((doc) => { doc.events.push(event); });
     const saved = JSON.parse(readFileSync(file, "utf8"));
-    expect(saved).toMatchObject({ schemaVersion: 2, collections: [{ id: "personal" }], events: [event] });
+    expect(saved).toMatchObject({ schemaVersion: 3, collections: [{ id: "personal" }, { id: "jewish", kind: "jewish" }], events: [event] });
     expect((await getStore().load()).events[0].start).toEqual(event.start);
   });
 
@@ -75,7 +75,7 @@ describe("abuse limits", () => {
   it("caps the number of calendars and events", async () => {
     const { addCollection, addEvent, MAX_COLLECTIONS, MAX_EVENTS } = await import("@/core/events/store");
     const doc = emptyDocument();
-    for (let i = 1; i < MAX_COLLECTIONS; i++) addCollection(doc, { name: `c${i}`, color: "#000000" }, `c${i}`);
+    for (let i = doc.collections.length; i < MAX_COLLECTIONS; i++) addCollection(doc, { name: `c${i}`, color: "#000000" }, `c${i}`);
     expect(() => addCollection(doc, { name: "one too many", color: "#000000" }, "x")).toThrow(/limit/);
     doc.events = Array.from({ length: MAX_EVENTS }, (_, i) => ({ ...event, uid: `e${i}` }));
     expect(() => addEvent(doc, { title: "x", start: event.start }, "y")).toThrow(/limit/);

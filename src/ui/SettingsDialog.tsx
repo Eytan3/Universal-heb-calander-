@@ -118,7 +118,7 @@ export function SettingsDialog({ t, locale, onLocale, theme, onTheme, repo, doc,
 
           <h3 className="group-title">{t.exportTitle}</h3>
           <section className="group">
-            <button type="button" className="row link-row" onClick={() => exportIcs(doc.events, t.appName)}>{t.exportIcs}</button>
+            <button type="button" className="row link-row" onClick={() => exportIcs(doc, null, t.appName, locale)}>{t.exportIcs}</button>
             <button type="button" className="row link-row" onClick={() => exportJson(doc, doc.collections, t.appName)}>{t.exportJson}</button>
             <div className="row sub">{t.exportHelp(doc.events.length)}{isPreview() ? ` ${t.exportPreviewNote}` : ""}</div>
           </section>

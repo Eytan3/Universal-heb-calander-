@@ -5,7 +5,11 @@ import { feedRange, icsResponse } from "@/server/feeds";
 
 export const dynamic = "force-dynamic";
 
-/** /holidays.ics?region=il|diaspora&categories=major,fast,...&lang=he|en — computed from built-in rules. */
+/**
+ * Legacy: /holidays.ics?region=il|diaspora&categories=major,fast,...&lang=he|en.
+ * Kept so existing subscriptions keep working; new links point to the computed calendar's own feed
+ * (/calendar.ics?collection=<id>), which uses that calendar's saved settings. The UIDs are the same.
+ */
 export function GET(req: Request) {
   const url = new URL(req.url);
   if (!checkHolidayFeedToken(url)) return new Response("Forbidden", { status: 403 });

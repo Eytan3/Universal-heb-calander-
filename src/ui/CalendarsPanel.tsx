@@ -1,15 +1,18 @@
 "use client";
 /**
- * Side panel (modelled on Apple Calendar's calendar list): the user's own calendars,
- * each with colour, show/hide, its own ICS link and export; plus built-in calendars
- * (holidays) that can be switched off completely for a clean calendar.
+ * Side panel (modelled on Apple Calendar's calendar list). One list for every calendar:
+ *  - regular calendars hold the user's events;
+ *  - computed calendars (Jewish holidays …) fill themselves in from rules and have settings instead.
+ * Each has a colour, show/hide, its own feed link, export and delete. Export can combine any of them.
  */
 import { useState } from "react";
-import { COLLECTION_COLORS, type Collection, type EventStoreDocument } from "@/core/events/schema";
+import {
+  COLLECTION_COLORS, DEFAULT_JEWISH_SETTINGS, isComputed, JEWISH_COLOR,
+  type Collection, type CollectionInput, type EventStoreDocument, type JewishCalendarSettings,
+} from "@/core/events/schema";
 import { HOLIDAY_CATEGORIES, type HolidayCategory } from "@/core/holidays/types";
 import type { Locale } from "@/core/calendars/types";
 import type { Strings } from "./i18n";
-import type { HolidayPrefs } from "./viewPrefs";
 import { exportIcs, exportJson } from "./export";
 import { withFeedToken } from "./repository";
 import type { ImportOutcome } from "./importFile";
@@ -22,14 +25,10 @@ interface Props {
   doc: EventStoreDocument;
   hidden: Set<string>;
   onToggle: (id: string) => void;
-  holidays: HolidayPrefs;
-  onHolidays: (h: HolidayPrefs) => void;
-  /** Feed links only exist when events live on the server. */
+  /** Feed links only exist when calendars live on the server. */
   serverFeeds: boolean;
-  /** The holidays feed needs only the server code, not storage. */
-  holidayFeed: boolean;
-  onCreate: (name: string, color: string) => Promise<void>;
-  onUpdate: (id: string, name: string, color: string) => Promise<void>;
+  onCreate: (input: CollectionInput) => Promise<void>;
+  onUpdate: (id: string, input: CollectionInput) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   /** Viewer of a public calendar (not signed in): links and exports only, no changes. */
   readOnly?: boolean;
@@ -38,7 +37,48 @@ interface Props {
 }
 
 export function displayName(c: Collection, t: Strings) {
-  return c.name || (c.id === "personal" ? t.defaultCollection : t.newCalendar);
+  return c.name || (isComputed(c) ? t.holidaysName : c.id === "personal" ? t.defaultCollection : t.newCalendar);
+}
+
+type Draft = { name: string; color: string; kind: "events" | "jewish"; jewish: JewishCalendarSettings };
+
+/** Region + categories of a computed Jewish calendar (like Hebcal's options). */
+function JewishSettings({ t, value, onChange }: { t: Strings; value: JewishCalendarSettings; onChange: (v: JewishCalendarSettings) => void }) {
+  return (
+    <>
+      <span className="muted small">{t.region}</span>
+      <div className="segmented small-seg">
+        {(["il", "diaspora"] as const).map((r) => (
+          <button key={r} type="button" className={value.region === r ? "on neutral" : ""} aria-pressed={value.region === r}
+            onClick={() => onChange({ ...value, region: r })}>{t.regions[r]}</button>
+        ))}
+      </div>
+      <div className="cat-list">
+        {HOLIDAY_CATEGORIES.map((c: HolidayCategory) => {
+          const on = value.categories.includes(c);
+          return (
+            <label key={c} className="cat-item">
+              <input type="checkbox" checked={on} onChange={() => onChange({
+                ...value, categories: on ? value.categories.filter((x) => x !== c) : HOLIDAY_CATEGORIES.filter((x) => x === c || value.categories.includes(x)),
+              })} />
+              <span>{t.holidayCats[c]}</span>
+            </label>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function Swatches({ t, value, onChange }: { t: Strings; value: string; onChange: (c: string) => void }) {
+  return (
+    <div className="swatches" role="radiogroup" aria-label={t.colorLabel}>
+      {COLLECTION_COLORS.map((col) => (
+        <button key={col} type="button" role="radio" aria-checked={value === col} aria-label={col}
+          className={value === col ? "swatch on" : "swatch"} style={{ background: col }} onClick={() => onChange(col)} />
+      ))}
+    </div>
+  );
 }
 
 function Check({ on, color, label, onClick }: { on: boolean; color: string; label: string; onClick: () => void }) {
@@ -63,11 +103,13 @@ const webcal = (path: string) => withFeedToken(`${origin()}${path}`).replace(/^h
 export function CalendarsPanel(p: Props) {
   const { t, doc } = p;
   const [open, setOpen] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ name: string; color: string } | null>(null);
-  const [creating, setCreating] = useState<{ name: string; color: string } | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [creating, setCreating] = useState<Draft | null>(null);
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState<{ busy?: boolean } & Partial<ImportOutcome> | null>(null);
+  // Export: which calendars to include (all by default)
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const { copied, copy } = useCopy();
 
   const run = async (fn: () => Promise<void>) => {
@@ -77,15 +119,18 @@ export function CalendarsPanel(p: Props) {
 
   const counts = new Map<string, number>();
   for (const e of doc.events) counts.set(e.collectionId, (counts.get(e.collectionId) ?? 0) + 1);
+  const eventCalendars = doc.collections.filter((c) => !isComputed(c)).length;
 
   const openOptions = (c: Collection) => {
     setArmedDelete(null);
     if (open === c.id) { setOpen(null); return; }
     setOpen(c.id);
-    setDraft({ name: c.name, color: c.color });
+    setDraft({ name: c.name, color: c.color, kind: isComputed(c) ? "jewish" : "events", jewish: c.jewish ?? DEFAULT_JEWISH_SETTINGS });
   };
+  const save = (c: Collection, d: Draft) => p.onUpdate(c.id, { name: d.name.trim(), color: d.color, ...(isComputed(c) ? { jewish: d.jewish } : {}) });
 
-  const holidayFeed = `/holidays.ics?region=${p.holidays.region}&categories=${p.holidays.categories.join(",")}&lang=${p.locale}`;
+  const chosen = doc.collections.filter((c) => !excluded.has(c.id));
+  const allChosen = chosen.length === doc.collections.length;
 
   return (
     <aside className="sidebar" id="calendars-panel" aria-label={t.calendars}>
@@ -94,43 +139,39 @@ export function CalendarsPanel(p: Props) {
         <h2>{t.calendars}</h2>
         <button type="button" className="bar-btn strong" onClick={p.onClose}>{t.done}</button>
       </header>
-      <h2 className="side-title">{t.myCalendars}</h2>
       <ul className="cal-list">
         {doc.collections.map((c) => {
           const name = displayName(c, t);
           const isOpen = open === c.id;
+          const computed = isComputed(c);
           return (
             <li key={c.id} className={isOpen ? "open" : ""}>
               <div className="cal-row">
                 <Check on={!p.hidden.has(c.id)} color={c.color} label={`${t.show}: ${name}`} onClick={() => p.onToggle(c.id)} />
                 <span className="cal-name" dir="auto">{name}</span>
-                <span className="cal-count">{counts.get(c.id) ?? 0}</span>
+                <span className="cal-count">{computed ? t.computedTag : counts.get(c.id) ?? 0}</span>
                 <button type="button" className="cal-more" aria-expanded={isOpen} aria-label={`${t.options}: ${name}`} onClick={() => openOptions(c)}>⋯</button>
               </div>
               {isOpen && draft && (
                 <div className="cal-options">
                   {!p.readOnly && (<>
-                  <input value={draft.name} placeholder={t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
+                  <input value={draft.name} placeholder={computed ? t.holidaysName : t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-                  <div className="swatches" role="radiogroup" aria-label={t.colorLabel}>
-                    {COLLECTION_COLORS.map((col) => (
-                      <button key={col} type="button" role="radio" aria-checked={draft.color === col} aria-label={col}
-                        className={draft.color === col ? "swatch on" : "swatch"} style={{ background: col }} onClick={() => setDraft({ ...draft, color: col })} />
-                    ))}
-                  </div>
-                  <button type="button" className="opt primary-opt" onClick={() => run(async () => { await p.onUpdate(c.id, draft.name, draft.color); setOpen(null); })}>{t.done}</button>
+                  <Swatches t={t} value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
+                  {computed && <JewishSettings t={t} value={draft.jewish} onChange={(jewish) => setDraft({ ...draft, jewish })} />}
+                  <button type="button" className="opt primary-opt" onClick={() => run(async () => { await save(c, draft); setOpen(null); })}>{t.done}</button>
                   </>)}
                   {p.serverFeeds && (
-                    <button type="button" className="opt" onClick={() => copy(c.id, webcal(`/calendar.ics?collection=${c.id}`))}>
+                    <button type="button" className="opt" onClick={() => copy(c.id, webcal(`/calendar.ics?collection=${c.id}&lang=${p.locale}`))}>
                       {copied === c.id ? t.linkCopied : `🔗 ${t.appleLink}`}
                     </button>
                   )}
-                  <button type="button" className="opt" onClick={() => exportIcs(doc.events.filter((e) => e.collectionId === c.id), name)}>⤓ {t.exportIcs}</button>
+                  <button type="button" className="opt" onClick={() => exportIcs(doc, [c.id], name, p.locale)}>⤓ {t.exportIcs}</button>
                   <button type="button" className="opt" onClick={() => exportJson(doc, [c], name)}>⤓ {t.exportJson}</button>
-                  {p.readOnly ? null : doc.collections.length > 1 ? (
+                  {p.readOnly ? null : computed || eventCalendars > 1 ? (
                     <button type="button" className={armedDelete === c.id ? "opt danger armed" : "opt danger"}
                       onClick={() => armedDelete === c.id ? run(async () => { await p.onDelete(c.id); setOpen(null); }) : setArmedDelete(c.id)}>
-                      {armedDelete === c.id ? t.confirmDeleteCalendar(counts.get(c.id) ?? 0) : t.deleteCalendar}
+                      {armedDelete === c.id ? (computed ? `${t.deleteComputed}?` : t.confirmDeleteCalendar(counts.get(c.id) ?? 0)) : computed ? t.deleteComputed : t.deleteCalendar}
                     </button>
                   ) : <p className="muted small">{t.lastCalendar}</p>}
                 </div>
@@ -141,36 +182,63 @@ export function CalendarsPanel(p: Props) {
       </ul>
 
       {p.readOnly ? null : creating ? (
-        <form className="cal-options new" onSubmit={(e) => { e.preventDefault(); run(async () => { await p.onCreate(creating.name.trim(), creating.color); setCreating(null); }); }}>
-          <input autoFocus value={creating.name} placeholder={t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
-            onChange={(e) => setCreating({ ...creating, name: e.target.value })} />
-          <div className="swatches" role="radiogroup" aria-label={t.colorLabel}>
-            {COLLECTION_COLORS.map((col) => (
-              <button key={col} type="button" role="radio" aria-checked={creating.color === col} aria-label={col}
-                className={creating.color === col ? "swatch on" : "swatch"} style={{ background: col }} onClick={() => setCreating({ ...creating, color: col })} />
+        <form className="cal-options new" onSubmit={(e) => {
+          e.preventDefault();
+          run(async () => {
+            await p.onCreate({ name: creating.name.trim(), color: creating.color, kind: creating.kind, ...(creating.kind === "jewish" ? { jewish: creating.jewish } : {}) });
+            setCreating(null);
+          });
+        }}>
+          <span className="muted small">{t.calendarType}</span>
+          <div className="segmented small-seg">
+            {(["events", "jewish"] as const).map((k) => (
+              <button key={k} type="button" className={creating.kind === k ? "on neutral" : ""} aria-pressed={creating.kind === k}
+                onClick={() => setCreating({ ...creating, kind: k, color: k === "jewish" && !doc.collections.some((c) => c.color === JEWISH_COLOR) ? JEWISH_COLOR : creating.color })}>
+                {k === "events" ? t.kindEvents : t.kindJewish}
+              </button>
             ))}
           </div>
+          <input autoFocus value={creating.name} placeholder={creating.kind === "jewish" ? t.holidaysName : t.calendarNamePh} maxLength={60} aria-label={t.calendarNamePh}
+            onChange={(e) => setCreating({ ...creating, name: e.target.value })} />
+          <Swatches t={t} value={creating.color} onChange={(color) => setCreating({ ...creating, color })} />
+          {creating.kind === "jewish" && (<>
+            <p className="muted small">{t.kindHelpJewish}</p>
+            <JewishSettings t={t} value={creating.jewish} onChange={(jewish) => setCreating({ ...creating, jewish })} />
+          </>)}
           <div className="row-actions">
             <button type="button" className="opt" onClick={() => setCreating(null)}>{t.cancel}</button>
-            <button type="submit" className="opt primary-opt" disabled={!creating.name.trim()}>{t.create}</button>
+            <button type="submit" className="opt primary-opt" disabled={creating.kind === "events" && !creating.name.trim()}>{t.create}</button>
           </div>
         </form>
       ) : (
         <button type="button" className="side-add" onClick={() => {
           const used = new Set(doc.collections.map((c) => c.color));
-          setCreating({ name: "", color: COLLECTION_COLORS.find((c) => !used.has(c)) ?? COLLECTION_COLORS[0] });
+          setCreating({ name: "", color: COLLECTION_COLORS.find((c) => !used.has(c)) ?? COLLECTION_COLORS[0], kind: "events", jewish: { ...DEFAULT_JEWISH_SETTINGS, categories: [...DEFAULT_JEWISH_SETTINGS.categories] } });
         }}>+ {t.newCalendar}</button>
       )}
 
       <div className="side-export">
-        <span className="muted small">{t.exportAll}</span>
+        <span className="muted small">{t.exportAll} · {t.exportPick}</span>
+        <div className="export-pick">
+          {doc.collections.map((c) => (
+            <label key={c.id} className="cat-item">
+              <input type="checkbox" checked={!excluded.has(c.id)} onChange={() => {
+                const next = new Set(excluded);
+                if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                setExcluded(next);
+              }} />
+              <span className="pick-dot" style={{ background: c.color }} aria-hidden />
+              <span dir="auto">{displayName(c, t)}</span>
+            </label>
+          ))}
+        </div>
         <div className="row-actions">
-          <button type="button" className="opt" dir="ltr" onClick={() => exportIcs(doc.events, t.appName)}>.ics</button>
-          <button type="button" className="opt" dir="ltr" onClick={() => exportJson(doc, doc.collections, t.appName)}>.json</button>
+          <button type="button" className="opt" dir="ltr" disabled={!chosen.length}
+            onClick={() => exportIcs(doc, allChosen ? null : chosen.map((c) => c.id), t.appName, p.locale)}>.ics</button>
+          <button type="button" className="opt" dir="ltr" disabled={!chosen.length} onClick={() => exportJson(doc, chosen, t.appName)}>.json</button>
         </div>
         <span className="muted small">{t.exportNote}</span>
       </div>
-
       {p.onImportFile && !p.readOnly && (
         <div className="side-export">
           <span className="muted small">{t.importTitle}</span>
@@ -193,48 +261,6 @@ export function CalendarsPanel(p: Props) {
         </div>
       )}
 
-      <h2 className="side-title">{t.builtIn}</h2>
-      <ul className="cal-list">
-        <li className={open === "holidays" ? "open" : ""}>
-          <div className="cal-row">
-            <Check on={p.holidays.enabled} color="var(--holiday)" label={`${t.show}: ${t.holidaysName}`}
-              onClick={() => p.onHolidays({ ...p.holidays, enabled: !p.holidays.enabled })} />
-            <span className="cal-name">{t.holidaysName}</span>
-            <button type="button" className="cal-more" aria-expanded={open === "holidays"} aria-label={`${t.options}: ${t.holidaysName}`}
-              onClick={() => setOpen(open === "holidays" ? null : "holidays")}>⋯</button>
-          </div>
-          {open === "holidays" && (
-            <div className="cal-options">
-              <span className="muted small">{t.region}</span>
-              <div className="segmented small-seg">
-                {(["il", "diaspora"] as const).map((r) => (
-                  <button key={r} type="button" className={p.holidays.region === r ? "on neutral" : ""} aria-pressed={p.holidays.region === r}
-                    onClick={() => p.onHolidays({ ...p.holidays, region: r })}>{t.regions[r]}</button>
-                ))}
-              </div>
-              <div className="cat-list">
-                {HOLIDAY_CATEGORIES.map((c: HolidayCategory) => {
-                  const on = p.holidays.categories.includes(c);
-                  return (
-                    <label key={c} className="cat-item">
-                      <input type="checkbox" checked={on} onChange={() => p.onHolidays({
-                        ...p.holidays,
-                        categories: on ? p.holidays.categories.filter((x) => x !== c) : [...p.holidays.categories, c],
-                      })} />
-                      <span>{t.holidayCats[c]}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              {p.holidayFeed && (
-                <button type="button" className="opt" onClick={() => copy("holidays", webcal(holidayFeed))}>
-                  {copied === "holidays" ? t.linkCopied : `🔗 ${t.appleLink}`}
-                </button>
-              )}
-            </div>
-          )}
-        </li>
-      </ul>
       {error && <p className="error small" role="alert">{error}</p>}
     </aside>
   );

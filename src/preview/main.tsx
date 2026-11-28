@@ -4,7 +4,7 @@
  */
 import { createRoot } from "react-dom/client";
 import "../app/globals.css";
-import { createEvent, defaultCollection, SCHEMA_VERSION, type EventInput } from "@/core/events/schema";
+import { createEvent, defaultCollection, jewishCollection, SCHEMA_VERSION, type EventInput } from "@/core/events/schema";
 import { gregorian, hebrew } from "@/core/calendars/registry";
 import { todayEpochDay } from "@/core/time/epochDay";
 import App from "@/ui/App";
@@ -24,7 +24,7 @@ function seedOnce() {
       { title: "פגישה", start: gregorian.fromEpochDay(today) },
     ];
     const events = samples.map((s, i) => createEvent(s, `sample-${i + 1}`));
-    localStorage.setItem(KEY, JSON.stringify({ schemaVersion: SCHEMA_VERSION, collections: [defaultCollection()], events }));
+    localStorage.setItem(KEY, JSON.stringify({ schemaVersion: SCHEMA_VERSION, collections: [defaultCollection(), jewishCollection()], events }));
     localStorage.setItem("universal-calendar:seeded", "1");
   } catch {
     /* storage unavailable: start empty */

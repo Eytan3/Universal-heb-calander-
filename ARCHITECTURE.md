@@ -413,3 +413,15 @@ are matched by name or created, every event is validated like a new one and gets
 overrides are kept, and an event identical to an existing one (calendar, title, start, rules) is skipped, so
 imports are idempotent. The server applies it in one `mutate` (`POST /api/import`, owner only, up to 4 MB);
 the browser repository applies the same function to localStorage.
+
+## Computed calendars (schema v3)
+
+A `Collection` has a `kind`: `events` (default — holds the user's events) or `jewish` — a *computed* calendar
+with no stored events, whose entries are generated from rules and the calendar's own `jewish` settings
+(`region`, `categories`; `src/core/holidays/computed.ts`). Every document starts with one (id `jewish`);
+v2 documents gain it on load. Store rules: events can never be added to a computed calendar; a computed
+calendar can always be deleted (the last *regular* calendar cannot); a calendar's kind never changes.
+The per-browser holiday preferences of v2 are migrated once by the UI into that calendar (and hidden there
+if they were switched off). `buildCollectionsIcs(doc, ids, …)` is the one ICS builder for feeds and Export:
+regular calendars contribute their events, computed ones their generated entries (one per holiday and day,
+even if two computed calendars both produce it), with the same UIDs as the legacy `/holidays.ics`.

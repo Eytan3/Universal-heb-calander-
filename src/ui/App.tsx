@@ -5,10 +5,11 @@ import type { CalendarDate, CalendarId, Locale, YearMonth } from "@/core/calenda
 import { byDay, expandAll, expandEvent, type Occurrence } from "@/core/events/expand";
 import { describeRule } from "@/core/events/describe";
 import { emptyDocument, type EventInput, type EventStoreDocument, type UCEvent } from "@/core/events/schema";
-import { jewishHolidays, type HolidayOccurrence } from "@/core/holidays/registry";
+import type { HolidayOccurrence } from "@/core/holidays/registry";
+import { computedOccurrences } from "@/core/holidays/computed";
 import { holidayInfo, holidayLink } from "@/core/holidays/info";
 import { CalendarsPanel, displayName } from "./CalendarsPanel";
-import { readViewPrefs, saveViewPrefs, DEFAULT_VIEW, type ViewPrefs } from "./viewPrefs";
+import { readLegacyHolidayPrefs, readViewPrefs, saveViewPrefs, DEFAULT_VIEW, type ViewPrefs } from "./viewPrefs";
 import { todayEpochDay, type EpochDay } from "@/core/time/epochDay";
 import { KeyboardHelp } from "./KeyboardHelp";
 import { EventEditor, type Scope } from "./EventEditor";
@@ -19,6 +20,7 @@ import { importFromFile } from "./importFile";
 import { BackIcon } from "./BackIcon";
 import { isPreview } from "./preview";
 import { applyTheme, readTheme, type Theme } from "./theme";
+import { DEFAULT_JEWISH_SETTINGS, isComputed, JEWISH_COLLECTION_ID, JEWISH_COLOR } from "@/core/events/schema";
 import { AuthRequiredError, chooseRepository, goToLogin, serverInfo, setEditToken, type EventRepository } from "./repository";
 
 type EditorState = { existing?: UCEvent; date: CalendarDate; occurrence?: Occurrence } | null;
@@ -124,18 +126,47 @@ export default function App() {
     }
   }, [reload]);
 
+  // One-time move of this browser's old holiday settings into the computed calendar (v2 → v3).
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (migrated.current || !repo || !doc.collections.length) return;
+    const legacy = readLegacyHolidayPrefs();
+    if (!legacy) { migrated.current = true; return; }
+    const jc = doc.collections.find((c) => c.id === JEWISH_COLLECTION_ID && isComputed(c));
+    if (!jc) return; // wait until the migrated document has loaded
+    migrated.current = true;
+    const differs = legacy.region !== DEFAULT_JEWISH_SETTINGS.region || legacy.categories.join() !== DEFAULT_JEWISH_SETTINGS.categories.join();
+    const untouched = JSON.stringify(jc.jewish) === JSON.stringify(DEFAULT_JEWISH_SETTINGS);
+    const canEdit = !(repo.kind === "server" && serverInfo.login === "viewer");
+    const next = legacy.enabled || view.hiddenCollections.includes(jc.id) ? view : { ...view, hiddenCollections: [...view.hiddenCollections, jc.id] };
+    saveViewPrefs(next);
+    setView(next);
+    if (differs && untouched && canEdit) {
+      void repo.updateCollection(jc.id, { name: jc.name, color: jc.color, jewish: { region: legacy.region, categories: legacy.categories } }).then(reload, () => undefined);
+    }
+  }, [repo, doc.collections, view, reload]);
+
   // Hidden calendars are filtered for display only; nothing is deleted.
   const hidden = useMemo(() => new Set(view.hiddenCollections), [view.hiddenCollections]);
   const events = useMemo(() => doc.events.filter((e) => !hidden.has(e.collectionId)), [doc.events, hidden]);
   const eventsByUid = useMemo(() => new Map(doc.events.map((e) => [e.uid, e])), [doc.events]);
   const colors = useMemo(() => new Map(doc.collections.map((c) => [c.id, c.color])), [doc.collections]);
-  const holidayOpts = view.holidays.enabled ? view.holidays : { ...view.holidays, categories: [] };
+  // Computed calendars (holidays …) shown like any calendar: each from its own settings, in its own colour.
+  // The same holiday from two such calendars on one day is shown once.
+  const shownComputed = useMemo(() => doc.collections.filter((c) => isComputed(c) && !hidden.has(c.id)), [doc.collections, hidden]);
   const holidaysIn = useCallback((start: EpochDay, end: EpochDay) => {
     const m = new Map<EpochDay, HolidayOccurrence[]>();
-    for (const h of jewishHolidays.occurrences({ start, end }, holidayOpts)) m.set(h.epochDay, [...(m.get(h.epochDay) ?? []), h]);
+    const seen = new Set<string>();
+    for (const c of shownComputed) {
+      for (const h of computedOccurrences(c, { start, end })) {
+        const k = `${h.id}.${h.epochDay}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        m.set(h.epochDay, [...(m.get(h.epochDay) ?? []), { ...h, color: c.color }]);
+      }
+    }
     return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(holidayOpts)]);
+  }, [shownComputed]);
 
   // Expand over the visible month (in whichever calendar is primary), then index by absolute day.
   const occurrences = useMemo(() => {
@@ -324,11 +355,10 @@ export default function App() {
       {sidebarOpen && <div className="side-backdrop" onClick={toggleSidebar} aria-hidden />}
       {sidebarOpen && <CalendarsPanel onClose={toggleSidebar} t={t} locale={locale} doc={doc} hidden={hidden}
         onToggle={(id) => updateView({ ...view, hiddenCollections: hidden.has(id) ? view.hiddenCollections.filter((x) => x !== id) : [...view.hiddenCollections, id] })}
-        holidays={view.holidays} onHolidays={(h) => updateView({ ...view, holidays: h })}
-        serverFeeds={repo?.kind === "server"} holidayFeed={!isPreview()} readOnly={readOnly}
+        serverFeeds={repo?.kind === "server"} readOnly={readOnly}
         onImportFile={repo ? (f) => importFromFile(repo, f, t, reload) : undefined}
-        onCreate={(name, color) => guarded(() => repo!.createCollection({ name, color }))}
-        onUpdate={(id, name, color) => guarded(() => repo!.updateCollection(id, { name, color }))}
+        onCreate={(input) => guarded(() => repo!.createCollection(input))}
+        onUpdate={(id, input) => guarded(() => repo!.updateCollection(id, input))}
         onDelete={(id) => guarded(() => repo!.removeCollection(id))} />}
       <div className="main-col">
       <MonthView key={primary} cal={mainCal} other={otherCal} ym={ym} onNavigate={setYm} locale={locale} t={t} today={today}
@@ -355,7 +385,8 @@ export default function App() {
                   const info = holidayInfo(h.id);
                   const link = holidayLink(h.id, locale);
                   return (
-                    <li key={h.id} className={`holiday-card hcat-${h.category}`}>
+                    <li key={h.id} className={`holiday-card hcat-${h.category}`}
+                      style={h.color && h.color !== JEWISH_COLOR ? ({ "--hc": h.color } as React.CSSProperties) : undefined}>
                       <span className="holiday-icon" aria-hidden>{info?.emoji ?? "✡"}</span>
                       <div className="holiday-body">
                         <strong dir="auto">{locale === "he" ? h.he : h.en}{h.yomTov && <span className="yomtov-badge">{t.yomTov}</span>}</strong>
@@ -420,8 +451,8 @@ export default function App() {
         <EventEditor
           key={editor.existing?.uid ?? `new-${editor.date.calendar}-${editor.date.year}-${editor.date.monthCode}-${editor.date.day}`}
           locale={locale} t={t} today={today} existing={editor.existing} initialDate={editor.date}
-          collections={doc.collections.map((c) => ({ id: c.id, name: displayName(c, t), color: c.color }))}
-          defaultCollectionId={doc.collections.find((c) => !hidden.has(c.id))?.id ?? doc.collections[0].id}
+          collections={doc.collections.filter((c) => !isComputed(c)).map((c) => ({ id: c.id, name: displayName(c, t), color: c.color }))}
+          defaultCollectionId={doc.collections.find((c) => !isComputed(c) && !hidden.has(c.id))?.id ?? doc.collections.find((c) => !isComputed(c))!.id}
           onClose={() => setEditor(null)}
           occurrence={editor.occurrence}
           onSave={(input: EventInput, scope?: Scope) => guarded(() => {

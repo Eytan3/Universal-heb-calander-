@@ -14,7 +14,9 @@
 import { getCalendar, isCalendarId } from "../calendars/registry";
 import type { CalendarDate, CalendarId, SkipPolicy } from "../calendars/types";
 
-export const SCHEMA_VERSION = 2 as const;
+import { HOLIDAY_CATEGORIES, type HolidayCategory } from "../holidays/types";
+
+export const SCHEMA_VERSION = 3 as const;
 
 /**
  * A user calendar ("יומן"): a named, coloured collection of events with its own ICS feed.
@@ -28,7 +30,30 @@ export interface Collection {
   /** #rrggbb */
   color: string;
   created: string;
+  /**
+   * "events" (default): holds the user's own events.
+   * "jewish": a computed calendar — no stored events; its entries (holidays, fasts, …) are generated
+   * from rules, configured by `jewish`. It behaves like any calendar: colour, show/hide, feed, export, delete.
+   */
+  kind?: CollectionKind;
+  jewish?: JewishCalendarSettings;
 }
+
+export type CollectionKind = "events" | "jewish";
+
+/** Settings of a computed Jewish calendar (like Hebcal's options). */
+export interface JewishCalendarSettings {
+  /** Israel or diaspora observance (second festival days, Simchat Torah, …). */
+  region: "il" | "diaspora";
+  /** Which kinds of days to include. */
+  categories: HolidayCategory[];
+}
+
+export const DEFAULT_JEWISH_SETTINGS: JewishCalendarSettings = { region: "il", categories: ["major", "minor", "fast", "modern"] };
+export const JEWISH_COLLECTION_ID = "jewish";
+export const JEWISH_COLOR = "#5e35b1";
+
+export const isComputed = (c: Collection | undefined) => c?.kind === "jewish";
 
 export const DEFAULT_COLLECTION_ID = "personal";
 export const COLLECTION_COLORS = ["#3949ab", "#00897b", "#e65100", "#c2185b", "#6d4c41", "#5e35b1", "#2e7d32", "#0277bd"];
@@ -224,13 +249,20 @@ export function defaultCollection(now: Date = new Date()): Collection {
   return { id: DEFAULT_COLLECTION_ID, name: "", color: COLLECTION_COLORS[0], created: now.toISOString() };
 }
 
+/** The computed Jewish calendar every new document starts with (it can be deleted for a clean calendar). */
+export function jewishCollection(now: Date = new Date(), settings: JewishCalendarSettings = DEFAULT_JEWISH_SETTINGS): Collection {
+  return { id: JEWISH_COLLECTION_ID, name: "", color: JEWISH_COLOR, created: now.toISOString(), kind: "jewish", jewish: { ...settings, categories: [...settings.categories] } };
+}
+
 export function emptyDocument(): EventStoreDocument {
-  return { schemaVersion: SCHEMA_VERSION, collections: [defaultCollection()], events: [] };
+  return { schemaVersion: SCHEMA_VERSION, collections: [defaultCollection(), jewishCollection()], events: [] };
 }
 
 /**
  * Structural check when loading persisted data, with migration:
  * v1 (no collections) → v2: every event goes into the default collection.
+ * v2 → v3: the built-in holidays become a computed calendar in the list (holiday display settings that
+ *          used to live in each browser are carried over by the UI once, see viewPrefs).
  */
 export function parseDocument(raw: unknown): EventStoreDocument {
   const o = raw as { schemaVersion?: number; events?: UCEvent[]; collections?: Collection[] } | null;
@@ -238,16 +270,38 @@ export function parseDocument(raw: unknown): EventStoreDocument {
   if (o.schemaVersion === 1) {
     return {
       schemaVersion: SCHEMA_VERSION,
-      collections: [defaultCollection()],
+      collections: [defaultCollection(), jewishCollection()],
       events: o.events.map((e) => ({ ...e, collectionId: DEFAULT_COLLECTION_ID })),
     };
   }
+  if (o.schemaVersion === 2 && Array.isArray(o.collections) && o.collections.length > 0) {
+    return { schemaVersion: SCHEMA_VERSION, collections: [...o.collections, jewishCollection()], events: o.events };
+  }
   if (o.schemaVersion !== SCHEMA_VERSION || !Array.isArray(o.collections) || o.collections.length === 0)
-    throw new Error("Unrecognised event store document (expected schemaVersion 1 or 2)");
+    throw new Error("Unrecognised event store document (expected schemaVersion 1, 2 or 3)");
   return o as EventStoreDocument;
 }
 
-export interface CollectionInput { name: string; color: string }
+export interface CollectionInput {
+  name: string;
+  color: string;
+  /** Only when creating; a calendar's kind never changes. Default "events". */
+  kind?: CollectionKind;
+  /** For computed Jewish calendars. */
+  jewish?: JewishCalendarSettings;
+}
+
+export function validateJewishSettings(raw: unknown): ValidationResult<JewishCalendarSettings> {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  const errors: string[] = [];
+  const region = o.region === "il" || o.region === "diaspora" ? o.region : null;
+  if (!region) errors.push("region must be il or diaspora");
+  const cats = Array.isArray(o.categories) ? o.categories : null;
+  if (!cats || cats.some((c) => !HOLIDAY_CATEGORIES.includes(c as HolidayCategory))) errors.push(`categories must be a subset of ${HOLIDAY_CATEGORIES.join(", ")}`);
+  if (errors.length) return { ok: false, errors };
+  // Keep the canonical order, without duplicates.
+  return { ok: true, value: { region: region!, categories: HOLIDAY_CATEGORIES.filter((c) => cats!.includes(c)) } };
+}
 
 export function validateCollectionInput(raw: unknown): ValidationResult<CollectionInput> {
   const o = (raw ?? {}) as Record<string, unknown>;
@@ -256,7 +310,15 @@ export function validateCollectionInput(raw: unknown): ValidationResult<Collecti
   if (name.length > 60) errors.push("name must be at most 60 characters");
   const color = typeof o.color === "string" ? o.color : "";
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) errors.push("color must be #rrggbb");
-  return errors.length ? { ok: false, errors } : { ok: true, value: { name, color } };
+  const kind = o.kind === undefined ? undefined : o.kind === "events" || o.kind === "jewish" ? o.kind : null;
+  if (kind === null) errors.push("kind must be events or jewish");
+  let jewish: JewishCalendarSettings | undefined;
+  if (o.jewish !== undefined) {
+    const v = validateJewishSettings(o.jewish);
+    if (v.ok) jewish = v.value; else errors.push(...v.errors.map((e) => `jewish.${e}`));
+  }
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, value: { name, color, ...(kind ? { kind } : {}), ...(jewish ? { jewish } : {}) } };
 }
 
 export const UID_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;

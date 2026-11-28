@@ -9,10 +9,10 @@
  *  - Events get new UIDs; per-occurrence changes (recurrenceOverrides) are kept.
  */
 import {
-  COLLECTION_COLORS, MAX_OVERRIDES, validateCollectionInput, validateEventInput,
-  type EventStoreDocument, type OccurrenceOverride, type UCEvent,
+  COLLECTION_COLORS, isComputed, MAX_OVERRIDES, validateCollectionInput, validateEventInput, validateJewishSettings,
+  type Collection, type EventStoreDocument, type OccurrenceOverride, type UCEvent,
 } from "./schema";
-import { addCollection, addEvent, MAX_COLLECTIONS, MAX_EVENTS } from "./store";
+import { addCollection, addEvent, defaultEventsCollection, MAX_COLLECTIONS, MAX_EVENTS } from "./store";
 
 export interface ImportResult {
   added: number;
@@ -22,7 +22,7 @@ export interface ImportResult {
   errors: string[];
 }
 
-interface FileCollection { id?: unknown; name?: unknown; color?: unknown }
+interface FileCollection { id?: unknown; name?: unknown; color?: unknown; kind?: unknown; jewish?: unknown }
 interface FileShape { schemaVersion?: unknown; collections?: unknown; events?: unknown }
 
 const norm = (s: string) => s.trim().toLocaleLowerCase();
@@ -61,11 +61,24 @@ export function importBackup(doc: EventStoreDocument, raw: unknown, newId: () =>
   for (const fc of fileCollections) {
     const fileId = typeof fc.id === "string" ? fc.id : "";
     const name = typeof fc.name === "string" ? fc.name.trim() : "";
-    let target = name ? doc.collections.find((c) => norm(c.name) === norm(name)) : doc.collections[0];
+    const computed = fc.kind === "jewish";
+    if (computed) {
+      // A computed calendar: matched by kind and name (or the unnamed built-in one); created with its settings.
+      const s = validateJewishSettings(fc.jewish);
+      const same = doc.collections.find((c) => isComputed(c) && norm(c.name) === norm(name));
+      if (same) continue;
+      if (doc.collections.length >= MAX_COLLECTIONS) { result.errors.push(`calendar "${name}": limit of ${MAX_COLLECTIONS} calendars reached`); continue; }
+      const color = typeof fc.color === "string" && validateCollectionInput({ name, color: fc.color }).ok ? fc.color : COLLECTION_COLORS[5];
+      addCollection(doc, { name: name.slice(0, 60), color, kind: "jewish", ...(s.ok ? { jewish: s.value } : {}) }, newId(), now);
+      result.calendarsCreated++;
+      continue;
+    }
+    const eventCollections = doc.collections.filter((c) => !isComputed(c));
+    let target: Collection | undefined = name ? eventCollections.find((c) => norm(c.name) === norm(name)) : eventCollections[0];
     if (!target) {
       if (doc.collections.length >= MAX_COLLECTIONS) {
-        result.errors.push(`calendar "${name}": limit of ${MAX_COLLECTIONS} calendars reached, its events go to "${doc.collections[0].name || "default"}"`);
-        target = doc.collections[0];
+        result.errors.push(`calendar "${name}": limit of ${MAX_COLLECTIONS} calendars reached, its events go to "${eventCollections[0].name || "default"}"`);
+        target = eventCollections[0];
       } else {
         const used = new Set(doc.collections.map((c) => c.color));
         const color = typeof fc.color === "string" && validateCollectionInput({ name, color: fc.color }).ok
@@ -81,7 +94,7 @@ export function importBackup(doc: EventStoreDocument, raw: unknown, newId: () =>
   const existing = new Set(doc.events.map(eventKey));
   for (const raw of file.events as Record<string, unknown>[]) {
     const label = typeof raw?.title === "string" ? `"${raw.title.slice(0, 60)}"` : "(untitled)";
-    const collectionId = (typeof raw?.collectionId === "string" && map.get(raw.collectionId)) || doc.collections[0].id;
+    const collectionId = (typeof raw?.collectionId === "string" && map.get(raw.collectionId)) || defaultEventsCollection(doc);
     const v = validateEventInput({
       title: raw?.title, description: raw?.description ?? undefined, start: raw?.start,
       recurrenceRules: raw?.recurrenceRules, collectionId,

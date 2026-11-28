@@ -1,10 +1,12 @@
 /**
- * Export of the user's own events (never built-in holidays):
- *  - ICS: opens in any calendar app (dates computed; daily/weekly as RRULE).
- *  - JSON: lossless backup in Ittim's own schema (keeps Hebrew dates and rules).
+ * Export of any chosen calendars:
+ *  - ICS: opens in any calendar app — regular calendars with their events, computed calendars with
+ *    their generated entries (holidays …). Same builder as the live feed.
+ *  - JSON: lossless backup in Ittim's own schema (Hebrew dates, rules, and computed calendars' settings).
  */
-import type { Collection, EventStoreDocument, UCEvent } from "@/core/events/schema";
-import { buildIcs } from "@/core/export/ics";
+import type { Locale } from "@/core/calendars/types";
+import type { Collection, EventStoreDocument } from "@/core/events/schema";
+import { buildCollectionsIcs } from "@/core/export/ics";
 import { todayEpochDay } from "@/core/time/epochDay";
 
 function download(filename: string, mime: string, text: string) {
@@ -25,10 +27,10 @@ const slug = (s: string) => {
 };
 const stamp = () => new Date().toISOString().slice(0, 10);
 
-export function exportIcs(events: UCEvent[], name: string) {
+/** `ids` null = every calendar. Dates cover 5 years back and 10 years ahead. */
+export function exportIcs(doc: EventStoreDocument, ids: string[] | null, name: string, locale: Locale) {
   const today = todayEpochDay();
-  // Materialised dates cover 5 years back and 10 years ahead.
-  const body = buildIcs(events, { range: { start: today - 5 * 366, end: today + 10 * 366 }, calendarName: name });
+  const body = buildCollectionsIcs(doc, ids, { range: { start: today - 5 * 366, end: today + 10 * 366 }, calendarName: name, locale });
   download(`${slug(name)}-${stamp()}.ics`, "text/calendar;charset=utf-8", body);
 }
 

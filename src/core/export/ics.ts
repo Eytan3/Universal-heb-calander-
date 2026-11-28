@@ -17,7 +17,8 @@ import type { EpochDay } from "../time/epochDay";
 import { holidayInfo, holidayText } from "../holidays/info";
 import { describeRule } from "../events/describe";
 import { expandAll, type Range } from "../events/expand";
-import type { UCEvent } from "../events/schema";
+import { isComputed, type EventStoreDocument, type UCEvent } from "../events/schema";
+import { computedOccurrences } from "../holidays/computed";
 
 export interface IcsOptions {
   range: Range;
@@ -80,13 +81,8 @@ function veventHead(ev: UCEvent, uid: string, day: EpochDay): string[] {
   ];
 }
 
-export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
-  const domain = opts.uidDomain ?? "universal-calendar";
-  const name = opts.calendarName ?? "Ittim";
-  const refresh = opts.refreshInterval ?? "PT6H";
-  const byUid = new Map(events.map((e) => [e.uid, e]));
-
-  const lines: string[] = [
+function calendarHead(name: string, refresh: string): string[] {
+  return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Ittim//Ittim 0.1//EN",
@@ -97,6 +93,19 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
     `REFRESH-INTERVAL;VALUE=DURATION:${refresh}`,
     `X-PUBLISHED-TTL:${refresh}`,
   ];
+}
+
+const finish = (lines: string[]) => [...lines, "END:VCALENDAR"].map(foldLine).join(CRLF) + CRLF;
+
+export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
+  return finish([...calendarHead(opts.calendarName ?? "Ittim", opts.refreshInterval ?? "PT6H"), ...eventLines(events, opts)]);
+}
+
+/** The VEVENTs for the user's own events (no calendar wrapper). */
+export function eventLines(events: UCEvent[], opts: Pick<IcsOptions, "range" | "uidDomain">): string[] {
+  const domain = opts.uidDomain ?? "universal-calendar";
+  const byUid = new Map(events.map((e) => [e.uid, e]));
+  const lines: string[] = [];
 
   const isFixedStep = (e: UCEvent) => {
     const f = e.recurrenceRules?.[0]?.frequency;
@@ -159,23 +168,23 @@ export function buildIcs(events: UCEvent[], opts: IcsOptions): string {
       "END:VEVENT",
     );
   }
-  lines.push("END:VCALENDAR");
-  return lines.map(foldLine).join(CRLF) + CRLF;
+  return lines;
 }
 
-/** ICS for a built-in holiday set (separate feed, so the main feeds stay clean). */
+type HolidayLike = { id: string; epochDay: EpochDay; en: string; he: string };
+
+/** ICS for a set of computed holidays on its own. */
 export function buildHolidaysIcs(
-  occurrences: { id: string; epochDay: EpochDay; en: string; he: string }[],
+  occurrences: HolidayLike[],
   opts: { calendarName: string; uidDomain?: string; locale: "en" | "he"; refreshInterval?: string },
 ): string {
+  return finish([...calendarHead(opts.calendarName, opts.refreshInterval ?? "P1D"), ...holidayLines(occurrences, opts)]);
+}
+
+/** The VEVENTs for computed holidays (no calendar wrapper). */
+export function holidayLines(occurrences: HolidayLike[], opts: { uidDomain?: string; locale: "en" | "he" }): string[] {
   const domain = opts.uidDomain ?? "universal-calendar";
-  const refresh = opts.refreshInterval ?? "P1D";
-  const lines = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ittim//Ittim 0.1//EN",
-    "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
-    `NAME:${escapeText(opts.calendarName)}`, `X-WR-CALNAME:${escapeText(opts.calendarName)}`,
-    `REFRESH-INTERVAL;VALUE=DURATION:${refresh}`, `X-PUBLISHED-TTL:${refresh}`,
-  ];
+  const lines: string[] = [];
   for (const o of occurrences) {
     lines.push(
       "BEGIN:VEVENT",
@@ -191,6 +200,31 @@ export function buildHolidaysIcs(
       "END:VEVENT",
     );
   }
-  lines.push("END:VCALENDAR");
-  return lines.map(foldLine).join(CRLF) + CRLF;
+  return lines;
+}
+
+/**
+ * One ICS for any mix of calendars — regular ones (their stored events) and computed ones (their entries
+ * generated from each calendar's own settings). Used by the feeds and by Export alike.
+ */
+export function buildCollectionsIcs(
+  doc: EventStoreDocument,
+  collectionIds: string[] | null,
+  opts: { range: Range; calendarName: string; uidDomain?: string; locale: "en" | "he"; refreshInterval?: string },
+): string {
+  const chosen = collectionIds ? doc.collections.filter((c) => collectionIds.includes(c.id)) : doc.collections;
+  const ids = new Set(chosen.filter((c) => !isComputed(c)).map((c) => c.id));
+  const lines = [...calendarHead(opts.calendarName, opts.refreshInterval ?? "PT6H"), ...eventLines(doc.events.filter((e) => ids.has(e.collectionId)), opts)];
+  // Several computed calendars may produce the same holiday on the same day; it is listed once.
+  const seen = new Set<string>();
+  for (const c of chosen.filter(isComputed)) {
+    const occ = computedOccurrences(c, opts.range).filter((o) => {
+      const k = `${o.id}.${o.epochDay}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    lines.push(...holidayLines(occ, opts));
+  }
+  return finish(lines);
 }

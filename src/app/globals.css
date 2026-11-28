@@ -493,3 +493,9 @@ input, textarea, select, [contenteditable] { caret-color: auto; }
 @keyframes month-in-next { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes month-in-prev { from { transform: translateY(-40%); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .grid.slide-next, .grid.slide-prev { animation: none; } }
+
+/* Export: choose calendars */
+.export-pick { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.25rem 0; }
+.pick-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; flex: none; }
+/* A computed calendar in a colour of its own: its holidays take that colour (readable in both themes) */
+.holiday[style*="--hc"], .holiday-card[style*="--hc"] { --holiday: color-mix(in srgb, var(--hc) 78%, var(--ink)); }

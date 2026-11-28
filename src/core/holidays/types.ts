@@ -27,6 +27,8 @@ export interface HolidayOccurrence {
   yomTov: boolean;
   /** Which holiday set produced it. */
   set: string;
+  /** Display only: the colour of the computed calendar it is shown for. */
+  color?: string;
 }
 
 export interface HolidaySet {

@@ -15,10 +15,12 @@ and its occurrences appear on the correct day in every calendar view and in an A
   Monthly and yearly rules follow the event's own calendar (a Hebrew monthly event follows Hebrew months),
   with RFC 7529 handling for dates that don't exist in a given month or year.
 - **Multiple calendars** ("Personal", "Work", …) in an Apple Calendar-style side panel: colour, show/hide,
-  a separate Apple Calendar link for each, and export of your own events as `.ics` or a lossless `.json` backup.
-- **Built-in Jewish holidays** (festivals, minor holidays, fasts, national days, Rosh Chodesh; Israel or
-  diaspora), defined as rules inside the app — no runtime holiday library. Switch them off entirely for a
-  clean calendar, or choose categories. A separate `/holidays.ics` feed is available.
+  a separate Apple Calendar link for each, and export of any chosen calendars as `.ics` or a lossless `.json` backup.
+- **Computed calendars:** Jewish holidays (festivals, minor holidays, fasts, national days, Rosh Chodesh) are
+  a calendar in the same list, filled in automatically from rules inside the app — no runtime holiday library.
+  Its *settings* (Israel or diaspora, which categories) belong to the calendar itself, so they are the same on
+  every device and in its feed. Delete it for a clean calendar, or add more (e.g. one for Israel, one for the
+  diaspora; one with only Rosh Chodesh). You cannot add events to it.
 - A JSON event store (documented schema) on disk locally, or in Redis on Vercel.
 - A live ICS feed (`/calendar.ics`) with stable UIDs, for Apple Calendar subscriptions.
 - English (LTR) and Hebrew (RTL) interface, light and dark, in a design language inspired by iOS
@@ -74,11 +76,12 @@ npm start              # http://localhost:3000
 - **Navigate:** use ‹ › to move between months, or pick a month or year.
 - **Calendars panel (side):** tick a calendar to show or hide it; **⋯** renames it, changes its colour,
   copies its Apple Calendar link, exports it (`.ics` / `.json`) or deletes it (with its events, after a
-  second click). **+ New calendar** adds one. *Export all my events* never includes built-in holidays.
+  second click; a computed calendar can always be deleted and added again). **+ New calendar** adds one —
+  choose *Regular* or *Jewish holidays*. **Export** lets you tick which calendars to include.
 - **Holiday explanations:** each holiday has an icon in the month view; selecting a day shows a card
   with a short explanation (Hebrew/English) and a *Read more* link. The holidays feed carries both too.
-- **Holidays:** under *Built-in*, untick *Jewish holidays* for a clean calendar; **⋯** chooses Israel or
-  diaspora and which categories to show, and copies a holidays-only Apple Calendar link.
+- **Holidays:** untick *Jewish holidays* to hide it, or delete it for a clean calendar; its **⋯** chooses
+  Israel or diaspora and the categories, and copies its own Apple Calendar link.
 - **Keyboard:** the whole calendar works from the keyboard — press **?** (or the keyboard button in the top bar, shown on computers with a mouse) for the list. Arrows move by day
   (following the grid's direction, so they mirror in Hebrew) and week; PageUp/PageDown or Shift+arrows by
   month; Shift+↑/↓ by year; Home/End; **T** today, **N** new event, **Enter** open, **M** Hebrew ⇄ Gregorian,
@@ -216,10 +219,10 @@ tests/               vitest suites
 | PUT | `/api/events/:uid` | `EventInput` | Increments `sequence` |
 | DELETE | `/api/events/:uid` | | 204 |
 | GET | `/api/status` | | storage kind, whether tokens are required |
-| POST | `/api/collections` | `{ name, color }` | create a calendar |
-| PUT / DELETE | `/api/collections/:id` | `{ name, color }` | rename/recolour; delete removes its events |
-| GET | `/calendar.ics` | | all your events; `?collection=<id>` for one calendar; `&download=1` as a file |
-| GET | `/holidays.ics` | | `?region=il\|diaspora&categories=major,minor,fast,modern,roshchodesh&lang=he\|en` |
+| POST | `/api/collections` | `{ name, color, kind?, jewish? }` | create a calendar (`kind`: `events` or `jewish`) |
+| PUT / DELETE | `/api/collections/:id` | `{ name, color, jewish? }` | rename/recolour/settings; delete removes its events |
+| GET | `/calendar.ics` | | every calendar; `?collection=<id>` one; `?collections=<id>,<id>` a set; `&lang=he\|en`; `&download=1` |
+| GET | `/holidays.ics` | | legacy (kept for old subscriptions): `?region=…&categories=…&lang=…` |
 
 `EventInput`:
 ```json
